@@ -539,7 +539,7 @@ async function processTab(tab) {
         console.log("[Window Script]: Supported site detected");
 
         try {
-            // LINK - Inject the content script into the tab using code from content.js
+            // LINK - Inject the content script into currently active tab using code from content.js
             console.log("[Window Script]: Injecting content script");
             await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
@@ -556,9 +556,9 @@ async function processTab(tab) {
             const text = document.getElementById("inputText").value;
             console.log("[Window Script]: Text to send:", text);
 
-
+            // LINK - Send a message to the content script to focus and fill the input field
             const response = await chrome.tabs.sendMessage(tab.id, {
-                action: "focusAndFill",
+                action: "focusAndFill", //  We created action focusAndFill, which is recieved in content.js
                 text: text,
             });
             console.log("[Window Script]: Response received:", response);

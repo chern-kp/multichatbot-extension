@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Multi ChatBot</title>
+  <style>
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="main-panel">
+      <div class="sort-container">
+      </div>
+      <div class="tabs-container" id="tabsList"></div>
+      <div class="buttons-container">
+        <button class="button" id="openHistoryButton">History</button>
+        <button class="button" id="openSavedPromptsButton">Saved Prompts</button>
+        <button class="button" id="openSettingsButton">Settings</button>
+      </div>
+      <div class="textbox-container">
+        <textarea id="inputText" placeholder="Enter the prompt..."></textarea>
+        <div class="button-group">
+          <button class="button" id="sendButton"><b>Send</b></button>
+          <button class="button" id="savePromptButton">Save current prompt</button>
+        </div>
+      </div>
+    </div>
+    <div class="right-panel" id="rightPanel">
+      <button class="close-button" id="closePanel">✕</button>
+      <div class="panel-content" id="panelContent">
+      </div>
+    </div>
+  </div>
+  <script src="window.js"></script>
+  <link rel="stylesheet" href="style.css">
+</body>
+
+</html>

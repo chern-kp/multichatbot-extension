@@ -75,7 +75,20 @@ const siteHandlers = {
                 throw error;
             }
         }
+    },
+    gemini: {
+    matches: (url) => {
+        return url.includes('gemini.google.com');
+    },
+    getInputField: () => {
+        const input = document.querySelector('.ql-editor[contenteditable="true"]');
+        return input;
+    },
+    submitAction: async (input) => {
+        fillInput(input, input.value);
+        await clickSendButton('button.send-button');
     }
+}
 };
 
 //NOTE - Function to fill input field with text from text field

@@ -351,9 +351,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     function sortTabs(tabs) {
         return [...tabs].sort((a, b) => {
             if (sortDirection === "desc") {
-                return b.id - a.id; // От новых к старым
-            } else {
-                return a.id - b.id; // От старых к новым
+                return b.id - a.id;
             }
         });
     }
@@ -478,16 +476,13 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         // Iterate over the selected tabs and process each tab
         for (const tabId of selectedTabIds) {
-            console.log("[Window Script]: Начинаем обработку вкладки:", tabId);
 
             try {
                 // This will activate the tab. This means that the tab will be brought to the front.
                 await chrome.tabs.update(tabId, { active: true });
-                console.log("[Window Script]: Вкладка активирована:", tabId);
 
                 // Get information about the tab (like URL, title, etc.)
                 const tab = await chrome.tabs.get(tabId);
-                console.log("[Window Script]: Информация о вкладке:", tab);
 
                 // LINK - Call the processTab function to process the tab
                 await processTab(tab);
@@ -548,7 +543,7 @@ async function processTab(tab) {
             console.log("[Window Script]: Injecting content script");
             await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
-                files: ["content.js"],
+                files: ["src/content.js"],
             });
             console.log(
                 "[Window Script]: Content script injected successfully"

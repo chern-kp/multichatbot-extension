@@ -542,8 +542,8 @@ async function processTab(tab) {
             // LINK - Inject the content script into currently active tab using code from content.js
             console.log("[Window Script]: Injecting content script");
             await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: ["src/content.js"],
+                target: { tabId: tab.id }, //  Script is injected into the current tab
+                files: ["src/content.js"], //  Content script file
             });
             console.log(
                 "[Window Script]: Content script injected successfully"

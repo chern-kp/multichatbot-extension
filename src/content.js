@@ -92,7 +92,7 @@ function handleAbacusChat(text) {
 
 
 //NOTE - Handler for gemini.google.com
-//TODO - Broken. Problem with strict Content Security Policy (CSP) restrictions maybe?
+//FIXME - Broken. Problem with strict Content Security Policy (CSP) restrictions maybe?
 async function handleGemini(text) {
     console.log("[content.js] Handling Gemini input...");
 
@@ -177,7 +177,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
 
     //Check the current URL and find the handler for the current site from the siteHandlers object
-    //NOTE - If handler is found, call the handler function for specific site from siteHandlers object
+    //LINK - If handler is found, call the handler function for specific site from siteHandlers object
     const currentURL = window.location.href;
     const handler = Object.entries(siteHandlers)
         .find(([domain]) => currentURL.includes(domain))?.[1];

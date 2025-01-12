@@ -329,11 +329,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
 
     // Add new button for sorting tabs
-    //TODO - move creation of the button to html
-    const sortButton = document.createElement("button");
-    sortButton.id = "sortButton";
-    sortButton.textContent = "Sorting";
-
     // Get the saved sort direction from storage
     const { savedSortDirection } = await chrome.storage.local.get(
         "savedSortDirection"
@@ -342,10 +337,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         sortDirection = savedSortDirection;
     }
     sortButton.className = sortDirection;
-
-    // Insert the sort button before the tabs list
-    //TODO - move creation of the button to html
-    tabsList.parentElement.insertBefore(sortButton, tabsList);
 
     //NOTE - Function for sorting tabs
     function sortTabs(tabs) {

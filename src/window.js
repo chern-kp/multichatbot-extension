@@ -52,6 +52,76 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     sortButton.className = sortDirection;
 
+    //NOTE - Function to display the list of tabs
+    async function setTabsList() {
+        const tabs = await chrome.tabs.query({});
+        const { selectedTabs = {} } = await chrome.storage.local.get(
+            "selectedTabs"
+        );
+
+        // Clear the current list, so we can re-render it
+        tabsList.innerHTML = "";
+
+        // Sort the tabs
+        const sortedTabs = sortTabs(tabs);
+
+        // Create a tab item for each tab
+        sortedTabs.forEach((tab) => {
+            console.log(
+                "[Window Script]: Creating tab item for:",
+                tab.id,
+                tab.title
+            );
+
+            const tabItem = document.createElement("div");
+            tabItem.className = "tab-item";
+
+            const isSupported = isSupportedUrl(tab.url);
+            tabItem.classList.add(isSupported ? "supported" : "unsupported");
+
+            // Create a checkbox for each tab
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "tab-checkbox";
+            checkbox.checked = isSupported && (selectedTabs[tab.id] || false);
+            checkbox.dataset.tabId = tab.id;
+
+            // if the site is not supported, disable the checkbox
+            if (!isSupported) {
+                checkbox.disabled = true;
+            }
+
+            const title = document.createElement("div");
+            title.className = "tab-title";
+            title.title = tab.title;
+            title.textContent = tab.title;
+
+            const url = document.createElement("div");
+            url.className = "tab-url";
+            url.textContent = tab.url;
+            url.title = tab.url;
+
+            tabItem.appendChild(checkbox);
+            tabItem.appendChild(title);
+            tabItem.appendChild(url);
+            tabsList.appendChild(tabItem);
+
+            // if the site is supported, add an event listener to the checkbox
+            if (isSupported) {
+                checkbox.addEventListener("change", async () => {
+                    const { selectedTabs = {} } =
+                        await chrome.storage.local.get("selectedTabs");
+                    if (checkbox.checked) {
+                        selectedTabs[tab.id] = true;
+                    } else {
+                        delete selectedTabs[tab.id];
+                    }
+                    await chrome.storage.local.set({ selectedTabs });
+                });
+            }
+        });
+    }
+
     //NOTE - Function for sorting tabs
     function sortTabs(tabs) {
         return [...tabs].sort((a, b) => {
@@ -60,8 +130,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         });
     }
-
-
 
     // Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
     sortButton.addEventListener("click", async () => {
@@ -113,7 +181,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         // Iterate over the selected tabs and process each tab
         for (const tabId of selectedTabIds) {
-
             try {
                 // This will activate the tab. This means that the tab will be brought to the front.
                 await chrome.tabs.update(tabId, { active: true });
@@ -159,77 +226,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         toggleRightPanel("settings", settingsButton)
     );
 });
-
-
-//NOTE - Function to display the list of tabs
-async function setTabsList() {
-    const tabs = await chrome.tabs.query({});
-    const { selectedTabs = {} } = await chrome.storage.local.get(
-        "selectedTabs"
-    );
-
-    // Clear the current list, so we can re-render it
-    tabsList.innerHTML = "";
-
-    // Sort the tabs
-    const sortedTabs = sortTabs(tabs);
-
-    // Create a tab item for each tab
-    sortedTabs.forEach((tab) => {
-        console.log(
-            "[Window Script]: Creating tab item for:",
-            tab.id,
-            tab.title
-        );
-
-        const tabItem = document.createElement("div");
-        tabItem.className = "tab-item";
-
-        const isSupported = isSupportedUrl(tab.url);
-        tabItem.classList.add(isSupported ? "supported" : "unsupported");
-
-        // Create a checkbox for each tab
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.className = "tab-checkbox";
-        checkbox.checked = isSupported && (selectedTabs[tab.id] || false);
-        checkbox.dataset.tabId = tab.id;
-
-        // if the site is not supported, disable the checkbox
-        if (!isSupported) {
-            checkbox.disabled = true;
-        }
-
-        const title = document.createElement("div");
-        title.className = "tab-title";
-        title.title = tab.title;
-        title.textContent = tab.title;
-
-        const url = document.createElement("div");
-        url.className = "tab-url";
-        url.textContent = tab.url;
-        url.title = tab.url;
-
-        tabItem.appendChild(checkbox);
-        tabItem.appendChild(title);
-        tabItem.appendChild(url);
-        tabsList.appendChild(tabItem);
-
-        // if the site is supported, add an event listener to the checkbox
-        if (isSupported) {
-            checkbox.addEventListener("change", async () => {
-                const { selectedTabs = {} } =
-                    await chrome.storage.local.get("selectedTabs");
-                if (checkbox.checked) {
-                    selectedTabs[tab.id] = true;
-                } else {
-                    delete selectedTabs[tab.id];
-                }
-                await chrome.storage.local.set({ selectedTabs });
-            });
-        }
-    });
-}
 
 //NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
 async function processTab(tab) {
@@ -504,7 +500,8 @@ async function setSettingsPanel() {
     // Create checkbox for setting "Display tabs in update order, instead of creation order"
     const areTabsRecentlyUpdatedCheckbox = document.createElement("input");
     areTabsRecentlyUpdatedCheckbox.type = "checkbox";
-    areTabsRecentlyUpdatedCheckbox.className = "recently-updated-setting-checkbox";
+    areTabsRecentlyUpdatedCheckbox.className =
+        "recently-updated-setting-checkbox";
     areTabsRecentlyUpdatedCheckbox.style.marginLeft = "10px";
 
     const areTabsRecentlyUpdatedCheckboxLabel = document.createElement("label");
@@ -535,7 +532,6 @@ async function setSettingsPanel() {
 }
 
 //!SECTION - Right panel functions
-
 
 //NOTE - Function to save the prompt to history
 async function saveToHistory(text) {

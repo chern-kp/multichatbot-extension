@@ -42,15 +42,28 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     const savePromptButton = document.getElementById("savePromptButton");
 
-    // Add event listener to the save prompt button. When clicked, save the prompt to the storage.
-    savePromptButton.addEventListener("click", async () => {
-        const text = document.getElementById("inputText").value.trim();
-        if (!text) return;
+    //SECTION - Tabs in DOMContentLoaded event
 
-        await savePrompt(text);
+    // Initialize activation times for existing tabs
+    const tabs = await chrome.tabs.query({});
+    const currentTime = Date.now();
+    const { tabActivationTimes: savedTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
+
+    // Load saved activation times
+    tabActivationTimes = new Map(Object.entries(savedTimes));
+
+    // Initialize times for tabs that don't have them
+    tabs.forEach(tab => {
+        if (!tabActivationTimes.has(tab.id.toString())) {
+            tabActivationTimes.set(tab.id.toString(), currentTime);
+        }
     });
 
-    // Add new button for sorting tabs
+    // Save updated activation times
+    await chrome.storage.local.set({
+        tabActivationTimes: Object.fromEntries(tabActivationTimes)
+    });
+
     // Get the saved sort direction from storage
     const { savedSortDirection } = await chrome.storage.local.get(
         "savedSortDirection"
@@ -85,6 +98,16 @@ document.addEventListener("DOMContentLoaded", async function () {
     updateButton.addEventListener("click", async () => {
         console.log("[Window Script]: Update button clicked");
         await setTabsList();
+    });
+
+    //!SECTION - Tabs in DOMContentLoaded event
+
+    // Add event listener to the save prompt button. When clicked, save the prompt to the storage.
+    savePromptButton.addEventListener("click", async () => {
+        const text = document.getElementById("inputText").value.trim();
+        if (!text) return;
+
+        await savePrompt(text);
     });
 
     //NOTE - Send button functionality. When clicked, send the text to the selected tabs.
@@ -152,7 +175,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     );
     const settingsButton = document.getElementById("openSettingsButton");
 
-    //LINK - Toggle the right panel (call toggleRightPanel function) depending on the button clicked
     historyButton.addEventListener("click", () =>
         toggleRightPanel("history", historyButton)
     );
@@ -164,32 +186,42 @@ document.addEventListener("DOMContentLoaded", async function () {
     );
 });
 
-//NOTE - Function for sorting tabs
-async function sortTabs(tabs) {
+//SECTION - Tabs functions and event listeners
+
+//NOTE - Event listener for tab activation
+//FIXME
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+    tabActivationTimes.set(activeInfo.tabId, Date.now());
+    // Save to storage for persistence
+    await chrome.storage.local.set({ tabActivationTimes: Object.fromEntries(tabActivationTimes) });
+
+    // If tabs are sorted by recent updates, refresh the list
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
+    if (areTabsRecentlyUpdated) {
+        await setTabsList();
+    }
+});
 
-    return [...tabs].sort((a, b) => {
-        if (areTabsRecentlyUpdated) {
-            // Get activation times, default to 0 if not found
-            const timeA = tabActivationTimes.get(a.id.toString()) || 0;
-            const timeB = tabActivationTimes.get(b.id.toString()) || 0;
+//NOTE - Event listener for tab creation
+chrome.tabs.onCreated.addListener(async () => {
+    console.log("[Window Script]: Tab created");
+    await setTabsList();
+});
 
-            // Sort by activation time
-            if (sortDirection === "desc") {
-                return timeB - timeA;
-            } else {
-                return timeA - timeB;
-            }
-        } else {
-            // Original sort by tab ID
-            if (sortDirection === "desc") {
-                return b.id - a.id;
-            } else {
-                return a.id - b.id;
-            }
-        }
-    });
-}
+//NOTE - Event listener for tab removal
+chrome.tabs.onRemoved.addListener(async () => {
+    console.log("[Window Script]: Tab removed");
+    await setTabsList();
+});
+
+//NOTE - Event listener for tab updates (URL changes, etc.)
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    // Only update when the tab is fully loaded or URL changes
+    if (changeInfo.status === 'complete' || changeInfo.url) {
+        console.log("[Window Script]: Tab updated:", tabId);
+        await setTabsList();
+    }
+});
 
 //NOTE - Function to display the list of tabs
 async function setTabsList() {
@@ -261,24 +293,32 @@ async function setTabsList() {
     });
 }
 
-//NOTE - Event listener for tab activation events
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    tabActivationTimes.set(activeInfo.tabId, Date.now());
-    // Save to storage for persistence
-    await chrome.storage.local.set({ tabActivationTimes: Object.fromEntries(tabActivationTimes) });
-
-    // If tabs are sorted by recent updates, refresh the list
+//NOTE - Function for sorting tabs
+async function sortTabs(tabs) {
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
-    if (areTabsRecentlyUpdated) {
-        await setTabsList();
-    }
-});
 
-//NOTE - Load saved tab activation times from storage when the DOM is loaded
-document.addEventListener("DOMContentLoaded", async () => {
-    const { tabActivationTimes: savedTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
-    tabActivationTimes = new Map(Object.entries(savedTimes));
-});
+    return [...tabs].sort((a, b) => {
+        if (areTabsRecentlyUpdated) {
+            // Get activation times, default to 0 if not found
+            const timeA = tabActivationTimes.get(a.id.toString()) || 0;
+            const timeB = tabActivationTimes.get(b.id.toString()) || 0;
+
+            // Sort by activation time
+            if (sortDirection === "desc") {
+                return timeB - timeA;
+            } else {
+                return timeA - timeB;
+            }
+        } else {
+            // Original sort by tab ID
+            if (sortDirection === "desc") {
+                return b.id - a.id;
+            } else {
+                return a.id - b.id;
+            }
+        }
+    });
+}
 
 
 //NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
@@ -332,6 +372,8 @@ async function processTab(tab) {
         }
     }
 }
+
+//!SECTION - Tabs functions and event listeners
 
 //SECTION - Right panel functions
 

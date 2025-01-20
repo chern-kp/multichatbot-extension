@@ -18,292 +18,6 @@ let isRightPanelVisible = false; // Viability of the right panel
 let activeButton = null;
 let currentPanel = null;
 
-//NOTE - Function to save the prompt to history
-async function saveToHistory(text) {
-    const { requestHistory = [] } = await chrome.storage.local.get(
-        "requestHistory"
-    );
-
-    const newHistoryItem = {
-        text,
-        timestamp: new Date().toISOString(),
-        id: Date.now(),
-    };
-
-    // Add new item to the beginning of the array
-    requestHistory.unshift(newHistoryItem);
-
-    // Limit the number of history items
-    if (requestHistory.length > MAX_HISTORY_ITEMS) {
-        requestHistory.pop();
-    }
-
-    await chrome.storage.local.set({ requestHistory });
-
-    // LINK - Update the history panel if it is currently active using updateHistoryPanel function
-    if (currentPanel === "history") {
-        await updateHistoryPanel();
-    }
-}
-
-//NOTE - Utility function to format the date
-function formatDate(isoString) {
-    const date = new Date(isoString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-
-    return `${year}.${month}.${day} ${hours}:${minutes}`;
-}
-
-//NOTE - Function to update the history panel
-async function updateHistoryPanel() {
-    if (currentPanel !== "history") return;
-
-    const rightPanel = document.querySelector(".right-panel");
-    const { requestHistory = [] } = await chrome.storage.local.get(
-        "requestHistory"
-    );
-
-    // Clear the current content, so we can re-render it
-    rightPanel.innerHTML = "";
-
-    // Add the header to HTML
-    const header = document.createElement("h3");
-    header.textContent = "History";
-    rightPanel.appendChild(header);
-
-    // Create a HTML/CSS container for history items
-    const historyContainer = document.createElement("div");
-    historyContainer.className = "history-container";
-
-    if (requestHistory.length === 0) {
-        const emptyMessage = document.createElement("div");
-        emptyMessage.className = "empty-history";
-        emptyMessage.textContent = "Prompt history is empty";
-        historyContainer.appendChild(emptyMessage);
-    } else {
-        requestHistory.forEach((item) => {
-            const historyItem = document.createElement("div");
-            historyItem.className = "history-item";
-
-            const textContainer = document.createElement("div");
-            textContainer.className = "history-text";
-            textContainer.textContent = item.text;
-            textContainer.title = item.text;
-
-            const dateContainer = document.createElement("div");
-            dateContainer.className = "history-date";
-            dateContainer.textContent = formatDate(item.timestamp);
-
-            const deleteButton = document.createElement("button");
-            deleteButton.className = "history-delete";
-            deleteButton.innerHTML = "✕";
-            deleteButton.title = "Remove from history";
-
-            deleteButton.addEventListener("click", async (e) => {
-                e.stopPropagation();
-                const { requestHistory = [] } = await chrome.storage.local.get(
-                    "requestHistory"
-                );
-                const updatedHistory = requestHistory.filter(
-                    (h) => h.id !== item.id
-                );
-                await chrome.storage.local.set({
-                    requestHistory: updatedHistory,
-                });
-                updateHistoryPanel();
-            });
-
-            // Append the text, date, and delete button to the history item
-            historyItem.appendChild(textContainer);
-            historyItem.appendChild(dateContainer);
-            historyItem.appendChild(deleteButton);
-
-            // When clicked, copy the text to the input field
-            historyItem.addEventListener("click", () => {
-                const inputText = document.getElementById("inputText");
-                inputText.value = item.text;
-            });
-
-            historyContainer.appendChild(historyItem);
-        });
-    }
-
-    // Add the history container to the right panel
-    rightPanel.appendChild(historyContainer);
-}
-
-//NOTE - Function to save the text from the input field to the saved prompts
-async function savePrompt(text) {
-    const { savedPrompts = [] } = await chrome.storage.local.get(
-        "savedPrompts"
-    );
-
-    const newPrompt = {
-        text,
-        timestamp: new Date().toISOString(),
-        id: Date.now(),
-    };
-
-    savedPrompts.unshift(newPrompt);
-    await chrome.storage.local.set({ savedPrompts });
-
-    // LINK - Update the saved prompts panel if it is currently active using updateSavedPromptsPanel function
-    if (currentPanel === "saved") {
-        await updateSavedPromptsPanel();
-    }
-}
-
-//NOTE - Function to update the saved prompts panel
-async function updateSavedPromptsPanel() {
-    if (currentPanel !== "saved") return;
-
-    const rightPanel = document.querySelector(".right-panel");
-    const { savedPrompts = [] } = await chrome.storage.local.get(
-        "savedPrompts"
-    ); // Get the saved prompts from storage
-
-    // Clear the current content, so we can re-render it
-    rightPanel.innerHTML = "";
-
-    // Add the header to HTML
-    const header = document.createElement("h3");
-    header.textContent = "Saved Prompts";
-    rightPanel.appendChild(header);
-
-    // Create a HTML/CSS container for saved prompts
-    const savedPromptsContainer = document.createElement("div");
-    savedPromptsContainer.className = "saved-prompts-container";
-
-    if (savedPrompts.length === 0) {
-        const emptyMessage = document.createElement("div");
-        emptyMessage.className = "empty-saved-prompts";
-        emptyMessage.textContent = "There are no saved prompts";
-        savedPromptsContainer.appendChild(emptyMessage);
-    } else {
-        savedPrompts.forEach((prompt) => {
-            const promptItem = document.createElement("div");
-            promptItem.className = "saved-prompt-item";
-
-            const textContainer = document.createElement("div");
-            textContainer.className = "saved-prompt-text";
-            textContainer.textContent = prompt.text;
-            textContainer.title = prompt.text;
-
-            const dateContainer = document.createElement("div");
-            dateContainer.className = "saved-prompt-date";
-            dateContainer.textContent = formatDate(prompt.timestamp);
-
-            const deleteButton = document.createElement("button");
-            deleteButton.className = "saved-prompt-delete";
-            deleteButton.innerHTML = "✕";
-            deleteButton.title = "Remove from saved prompts";
-
-            deleteButton.addEventListener("click", async (e) => {
-                e.stopPropagation();
-                const { savedPrompts = [] } = await chrome.storage.local.get(
-                    "savedPrompts"
-                );
-                const updatedPrompts = savedPrompts.filter(
-                    (p) => p.id !== prompt.id
-                );
-                await chrome.storage.local.set({
-                    savedPrompts: updatedPrompts,
-                });
-                updateSavedPromptsPanel();
-            });
-
-            promptItem.appendChild(textContainer);
-            promptItem.appendChild(dateContainer);
-            promptItem.appendChild(deleteButton);
-
-            // When clicked, copy the text to the input field
-            promptItem.addEventListener("click", () => {
-                const inputText = document.getElementById("inputText");
-                inputText.value = prompt.text;
-            });
-
-            // Append the prompt item to the saved prompts container
-            savedPromptsContainer.appendChild(promptItem);
-        });
-    }
-
-    // Add the saved prompts container to the right panel
-    rightPanel.appendChild(savedPromptsContainer);
-}
-
-//NOTE - Function to toggle the right panel
-async function toggleRightPanel(panelType, button) {
-    const rightPanel = document.querySelector(".right-panel");
-
-    // If the panel is already visible and the same button is clicked, hide the panel
-    if (activeButton === button) {
-        rightPanel.classList.remove("visible");
-        button.classList.remove("active");
-        activeButton = null;
-        currentPanel = null;
-        return;
-    }
-
-    // If the panel is not visible, show it
-    if (activeButton) {
-        activeButton.classList.remove("active");
-    }
-
-    // Add the active class to the clicked button
-    button.classList.add("active");
-    activeButton = button;
-    currentPanel = panelType;
-
-    // Clear the current content, so we can re-render it
-    rightPanel.innerHTML = "";
-
-    // Add the header to HTML
-    const header = document.createElement("h3");
-
-    switch (panelType) {
-        case "history":
-            header.textContent = "History";
-            rightPanel.appendChild(header);
-            await updateHistoryPanel();
-            break;
-        case "saved":
-            header.textContent = "Saved Prompts";
-            rightPanel.appendChild(header);
-            await updateSavedPromptsPanel();
-            break;
-        case "settings":
-            //STUB - Placeholder for settings
-            header.textContent = "Settings";
-            rightPanel.appendChild(header);
-            rightPanel.appendChild(
-                createPlaceholder("Settings panel will be displayed here")
-            );
-            break;
-    }
-
-    // Add the right panel to the DOM
-    rightPanel.classList.add("visible");
-}
-
-//STUB - Placeholder function to create a placeholder
-function createPlaceholder(text) {
-    const placeholder = document.createElement("div");
-    placeholder.style.color = "#666";
-    placeholder.style.textAlign = "center";
-    placeholder.style.padding = "20px";
-    placeholder.textContent = text;
-    return placeholder;
-}
-
-//NOTE - Function to check if the URL is supported
-function isSupportedUrl(url) {
-    return SUPPORTED_SITES.some((site) => url.includes(site));
-}
-
 //NOTE - Event listener for the DOMContentLoaded event.
 //We use this event to ensure that the DOM is fully loaded before we start interacting with it.
 document.addEventListener("DOMContentLoaded", async function () {
@@ -347,75 +61,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
     }
 
-    //NOTE - Function to display the list of tabs
-    async function updateTabsList() {
-        const tabs = await chrome.tabs.query({});
-        const { selectedTabs = {} } = await chrome.storage.local.get(
-            "selectedTabs"
-        );
 
-        // Clear the current list, so we can re-render it
-        tabsList.innerHTML = "";
-
-        // Sort the tabs
-        const sortedTabs = sortTabs(tabs);
-
-        // Create a tab item for each tab
-        sortedTabs.forEach((tab) => {
-            console.log(
-                "[Window Script]: Creating tab item for:",
-                tab.id,
-                tab.title
-            );
-
-            const tabItem = document.createElement("div");
-            tabItem.className = "tab-item";
-
-            const isSupported = isSupportedUrl(tab.url);
-            tabItem.classList.add(isSupported ? "supported" : "unsupported");
-
-            // Create a checkbox for each tab
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.className = "tab-checkbox";
-            checkbox.checked = isSupported && (selectedTabs[tab.id] || false);
-            checkbox.dataset.tabId = tab.id;
-
-            // if the site is not supported, disable the checkbox
-            if (!isSupported) {
-                checkbox.disabled = true;
-            }
-
-            const title = document.createElement("div");
-            title.className = "tab-title";
-            title.title = tab.title;
-            title.textContent = tab.title;
-
-            const url = document.createElement("div");
-            url.className = "tab-url";
-            url.textContent = tab.url;
-            url.title = tab.url;
-
-            tabItem.appendChild(checkbox);
-            tabItem.appendChild(title);
-            tabItem.appendChild(url);
-            tabsList.appendChild(tabItem);
-
-            // if the site is supported, add an event listener to the checkbox
-            if (isSupported) {
-                checkbox.addEventListener("change", async () => {
-                    const { selectedTabs = {} } =
-                        await chrome.storage.local.get("selectedTabs");
-                    if (checkbox.checked) {
-                        selectedTabs[tab.id] = true;
-                    } else {
-                        delete selectedTabs[tab.id];
-                    }
-                    await chrome.storage.local.set({ selectedTabs });
-                });
-            }
-        });
-    }
 
     // Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
     sortButton.addEventListener("click", async () => {
@@ -430,11 +76,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         // Update the class name of the sort button, so the icon changes (up/down arrow from CSS file)
         sortButton.className = sortDirection;
 
-        await updateTabsList();
+        await setTabsList();
     });
 
     // Update the tabs list when the window is loaded
-    await updateTabsList();
+    await setTabsList();
 
     //NOTE - Send button functionality. When clicked, send the text to the selected tabs.
     sendButton.addEventListener("click", async () => {
@@ -514,6 +160,77 @@ document.addEventListener("DOMContentLoaded", async function () {
     );
 });
 
+
+//NOTE - Function to display the list of tabs
+async function setTabsList() {
+    const tabs = await chrome.tabs.query({});
+    const { selectedTabs = {} } = await chrome.storage.local.get(
+        "selectedTabs"
+    );
+
+    // Clear the current list, so we can re-render it
+    tabsList.innerHTML = "";
+
+    // Sort the tabs
+    const sortedTabs = sortTabs(tabs);
+
+    // Create a tab item for each tab
+    sortedTabs.forEach((tab) => {
+        console.log(
+            "[Window Script]: Creating tab item for:",
+            tab.id,
+            tab.title
+        );
+
+        const tabItem = document.createElement("div");
+        tabItem.className = "tab-item";
+
+        const isSupported = isSupportedUrl(tab.url);
+        tabItem.classList.add(isSupported ? "supported" : "unsupported");
+
+        // Create a checkbox for each tab
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "tab-checkbox";
+        checkbox.checked = isSupported && (selectedTabs[tab.id] || false);
+        checkbox.dataset.tabId = tab.id;
+
+        // if the site is not supported, disable the checkbox
+        if (!isSupported) {
+            checkbox.disabled = true;
+        }
+
+        const title = document.createElement("div");
+        title.className = "tab-title";
+        title.title = tab.title;
+        title.textContent = tab.title;
+
+        const url = document.createElement("div");
+        url.className = "tab-url";
+        url.textContent = tab.url;
+        url.title = tab.url;
+
+        tabItem.appendChild(checkbox);
+        tabItem.appendChild(title);
+        tabItem.appendChild(url);
+        tabsList.appendChild(tabItem);
+
+        // if the site is supported, add an event listener to the checkbox
+        if (isSupported) {
+            checkbox.addEventListener("change", async () => {
+                const { selectedTabs = {} } =
+                    await chrome.storage.local.get("selectedTabs");
+                if (checkbox.checked) {
+                    selectedTabs[tab.id] = true;
+                } else {
+                    delete selectedTabs[tab.id];
+                }
+                await chrome.storage.local.set({ selectedTabs });
+            });
+        }
+    });
+}
+
 //NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
 async function processTab(tab) {
     console.log(
@@ -564,4 +281,324 @@ async function processTab(tab) {
             console.error("[Window Script]: Error processing tab:", error);
         }
     }
+}
+
+//SECTION - Right panel functions
+
+//NOTE - Function to toggle the right panel
+async function toggleRightPanel(panelType, button) {
+    const rightPanel = document.querySelector(".right-panel");
+
+    // If the panel is already visible and the same button is clicked, hide the panel
+    if (activeButton === button) {
+        rightPanel.classList.remove("visible");
+        button.classList.remove("active");
+        activeButton = null;
+        currentPanel = null;
+        return;
+    }
+
+    // If the panel is not visible, show it
+    if (activeButton) {
+        activeButton.classList.remove("active");
+    }
+
+    // Add the active class to the clicked button
+    button.classList.add("active");
+    activeButton = button;
+    currentPanel = panelType;
+
+    // Clear the current content, so we can re-render it
+    rightPanel.innerHTML = "";
+
+    // Add the header to HTML
+    const header = document.createElement("h3");
+
+    switch (panelType) {
+        case "history":
+            header.textContent = "History";
+            rightPanel.appendChild(header);
+            await setHistoryPanel();
+            break;
+        case "saved":
+            header.textContent = "Saved Prompts";
+            rightPanel.appendChild(header);
+            await setSavedPromptsPanel();
+            break;
+        case "settings":
+            header.textContent = "Settings";
+            rightPanel.appendChild(header);
+            await setSettingsPanel();
+            break;
+    }
+
+    // Add the right panel to the DOM
+    rightPanel.classList.add("visible");
+}
+
+//NOTE - Function to set the history panel
+async function setHistoryPanel() {
+    if (currentPanel !== "history") return;
+
+    const rightPanel = document.querySelector(".right-panel");
+    const { requestHistory = [] } = await chrome.storage.local.get(
+        "requestHistory"
+    );
+
+    // Clear the current content, so we can re-render it
+    rightPanel.innerHTML = "";
+
+    // Add the header to HTML
+    const header = document.createElement("h3");
+    header.textContent = "History";
+    rightPanel.appendChild(header);
+
+    // Create a HTML/CSS container for history items
+    const historyContainer = document.createElement("div");
+    historyContainer.className = "history-container";
+
+    if (requestHistory.length === 0) {
+        const emptyMessage = document.createElement("div");
+        emptyMessage.className = "empty-history";
+        emptyMessage.textContent = "Prompt history is empty";
+        historyContainer.appendChild(emptyMessage);
+    } else {
+        requestHistory.forEach((item) => {
+            const historyItem = document.createElement("div");
+            historyItem.className = "history-item";
+
+            const textContainer = document.createElement("div");
+            textContainer.className = "history-text";
+            textContainer.textContent = item.text;
+            textContainer.title = item.text;
+
+            const dateContainer = document.createElement("div");
+            dateContainer.className = "history-date";
+            dateContainer.textContent = formatDate(item.timestamp);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "history-delete";
+            deleteButton.innerHTML = "✕";
+            deleteButton.title = "Remove from history";
+
+            deleteButton.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                const { requestHistory = [] } = await chrome.storage.local.get(
+                    "requestHistory"
+                );
+                const updatedHistory = requestHistory.filter(
+                    (h) => h.id !== item.id
+                );
+                await chrome.storage.local.set({
+                    requestHistory: updatedHistory,
+                });
+                setHistoryPanel();
+            });
+
+            // Append the text, date, and delete button to the history item
+            historyItem.appendChild(textContainer);
+            historyItem.appendChild(dateContainer);
+            historyItem.appendChild(deleteButton);
+
+            // When clicked, copy the text to the input field
+            historyItem.addEventListener("click", () => {
+                const inputText = document.getElementById("inputText");
+                inputText.value = item.text;
+            });
+
+            historyContainer.appendChild(historyItem);
+        });
+    }
+
+    // Add the history container to the right panel
+    rightPanel.appendChild(historyContainer);
+}
+
+//NOTE - Function to set the saved prompts panel
+async function setSavedPromptsPanel() {
+    if (currentPanel !== "saved") return;
+
+    const rightPanel = document.querySelector(".right-panel");
+    const { savedPrompts = [] } = await chrome.storage.local.get(
+        "savedPrompts"
+    ); // Get the saved prompts from storage
+
+    // Clear the current content, so we can re-render it
+    rightPanel.innerHTML = "";
+
+    // Add the header to HTML
+    const header = document.createElement("h3");
+    header.textContent = "Saved Prompts";
+    rightPanel.appendChild(header);
+
+    // Create a HTML/CSS container for saved prompts
+    const savedPromptsContainer = document.createElement("div");
+    savedPromptsContainer.className = "saved-prompts-container";
+
+    if (savedPrompts.length === 0) {
+        const emptyMessage = document.createElement("div");
+        emptyMessage.className = "empty-saved-prompts";
+        emptyMessage.textContent = "There are no saved prompts";
+        savedPromptsContainer.appendChild(emptyMessage);
+    } else {
+        savedPrompts.forEach((prompt) => {
+            const promptItem = document.createElement("div");
+            promptItem.className = "saved-prompt-item";
+
+            const textContainer = document.createElement("div");
+            textContainer.className = "saved-prompt-text";
+            textContainer.textContent = prompt.text;
+            textContainer.title = prompt.text;
+
+            const dateContainer = document.createElement("div");
+            dateContainer.className = "saved-prompt-date";
+            dateContainer.textContent = formatDate(prompt.timestamp);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "saved-prompt-delete";
+            deleteButton.innerHTML = "✕";
+            deleteButton.title = "Remove from saved prompts";
+
+            deleteButton.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                const { savedPrompts = [] } = await chrome.storage.local.get(
+                    "savedPrompts"
+                );
+                const updatedPrompts = savedPrompts.filter(
+                    (p) => p.id !== prompt.id
+                );
+                await chrome.storage.local.set({
+                    savedPrompts: updatedPrompts,
+                });
+                setSavedPromptsPanel();
+            });
+
+            promptItem.appendChild(textContainer);
+            promptItem.appendChild(dateContainer);
+            promptItem.appendChild(deleteButton);
+
+            // When clicked, copy the text to the input field
+            promptItem.addEventListener("click", () => {
+                const inputText = document.getElementById("inputText");
+                inputText.value = prompt.text;
+            });
+
+            // Append the prompt item to the saved prompts container
+            savedPromptsContainer.appendChild(promptItem);
+        });
+    }
+
+    // Add the saved prompts container to the right panel
+    rightPanel.appendChild(savedPromptsContainer);
+}
+
+//NOTE - Function to set the settings panel
+async function setSettingsPanel() {
+    if (currentPanel !== "settings") return;
+
+    const rightPanel = document.querySelector(".right-panel");
+
+    const settingContainer = document.createElement("div");
+    settingContainer.className = "recently-updated-setting-container";
+
+    // Create checkbox for setting "Display tabs in update order, instead of creation order"
+    const areTabsRecentlyUpdatedCheckbox = document.createElement("input");
+    areTabsRecentlyUpdatedCheckbox.type = "checkbox";
+    areTabsRecentlyUpdatedCheckbox.className = "recently-updated-setting-checkbox";
+    areTabsRecentlyUpdatedCheckbox.style.marginLeft = "10px";
+
+    const areTabsRecentlyUpdatedCheckboxLabel = document.createElement("label");
+    areTabsRecentlyUpdatedCheckboxLabel.for = "recentlyUpdatedCheckbox";
+    areTabsRecentlyUpdatedCheckboxLabel.textContent =
+        "Display tabs in update order, instead of creation order";
+
+    settingContainer.appendChild(areTabsRecentlyUpdatedCheckbox);
+    settingContainer.appendChild(areTabsRecentlyUpdatedCheckboxLabel);
+
+    rightPanel.appendChild(settingContainer);
+
+    //Save the setting to storage
+    areTabsRecentlyUpdatedCheckbox.addEventListener("change", async (e) => {
+        await chrome.storage.local.set({
+            areTabsRecentlyUpdated: e.target.checked,
+        });
+    });
+
+    //Display checkbox status from storage
+    const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
+        "areTabsRecentlyUpdated"
+    );
+    areTabsRecentlyUpdatedCheckbox.checked = areTabsRecentlyUpdated;
+
+    //After checkbox status change, update the tabs list
+    //TODO - Implement
+}
+
+//!SECTION - Right panel functions
+
+
+//NOTE - Function to save the prompt to history
+async function saveToHistory(text) {
+    const { requestHistory = [] } = await chrome.storage.local.get(
+        "requestHistory"
+    );
+
+    const newHistoryItem = {
+        text,
+        timestamp: new Date().toISOString(),
+        id: Date.now(),
+    };
+
+    // Add new item to the beginning of the array
+    requestHistory.unshift(newHistoryItem);
+
+    // Limit the number of history items
+    if (requestHistory.length > MAX_HISTORY_ITEMS) {
+        requestHistory.pop();
+    }
+
+    await chrome.storage.local.set({ requestHistory });
+
+    // LINK - Update the history panel if it is currently active using updateHistoryPanel function
+    if (currentPanel === "history") {
+        await setHistoryPanel();
+    }
+}
+
+//NOTE - Function to save the prompt to the saved prompts
+async function savePrompt(text) {
+    const { savedPrompts = [] } = await chrome.storage.local.get(
+        "savedPrompts"
+    );
+
+    const newPrompt = {
+        text,
+        timestamp: new Date().toISOString(),
+        id: Date.now(),
+    };
+
+    savedPrompts.unshift(newPrompt);
+    await chrome.storage.local.set({ savedPrompts });
+
+    // LINK - Update the saved prompts panel if it is currently active using updateSavedPromptsPanel function
+    if (currentPanel === "saved") {
+        await setSavedPromptsPanel();
+    }
+}
+
+//NOTE - Utility function to format the date
+function formatDate(isoString) {
+    const date = new Date(isoString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return `${year}.${month}.${day} ${hours}:${minutes}`;
+}
+
+//NOTE - Function to check if the URL is supported
+function isSupportedUrl(url) {
+    return SUPPORTED_SITES.some((site) => url.includes(site));
 }

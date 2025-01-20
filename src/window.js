@@ -80,6 +80,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Update the tabs list when the window is loaded
     await setTabsList();
 
+    // Update button functionality
+    const updateButton = document.getElementById("updateButton");
+    updateButton.addEventListener("click", async () => {
+        console.log("[Window Script]: Update button clicked");
+        await setTabsList();
+    });
+
     //NOTE - Send button functionality. When clicked, send the text to the selected tabs.
     sendButton.addEventListener("click", async () => {
         console.log("[Window Script]: Send button clicked");

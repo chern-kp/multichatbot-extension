@@ -120,9 +120,28 @@ body {
 
 .sort-container {
     margin-bottom: 16px;
+    display: flex;
+}
+
+#updateButton {
+    font-weight: bold;
+    padding: 8px 4px;
+    background-color: white;
+    border: white 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    font-size: 14px;
+    padding: 0 8px;
+}
+
+#updateButton:hover {
+    background-color: #e0e0e0;
 }
 
 #sortButton {
+    flex: 1;
     font-weight: bold;
     padding: 8px 4px;
     background-color: white;
@@ -144,6 +163,7 @@ body {
 #sortButton.asc::after {
     content: " ↑";
 }
+
 
 .buttons-container {
     display: flex;

@@ -8,7 +8,8 @@ const siteHandlers = {
     'chatgpt.com': handleChatGPT,
     'claude.ai': handleClaude,
     'apps.abacus.ai/chatllm': handleAbacusChat,
-    'gemini.google.com': handleGemini
+    'gemini.google.com': handleGemini,
+    'chat.deepseek.com': handleDeepSeek
 };
 
 //SECTION - Site-specific handlers
@@ -116,6 +117,30 @@ async function handleGemini(text) {
     }
 
     return false;
+}
+
+//NOTE - Handler for deepseek.com
+function handleDeepSeek(text) {
+    const input = document.querySelector('textarea#chat-input');
+    if (!input) return false;
+
+    input.value = text || "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // Search for the send button by its SVG icon
+    const sendButton = Array.from(document.querySelectorAll('div[role="button"]'))
+        .find(button => {
+            const svg = button.querySelector('svg');
+            return svg && svg.getAttribute('viewBox') === '0 0 14 16';
+        });
+
+    if (!sendButton || sendButton.getAttribute('aria-disabled') === 'true') {
+        return false;
+    }
+
+    sendButton.click();
+    return true;
 }
 
 //!SECTION - Site-specific handlers

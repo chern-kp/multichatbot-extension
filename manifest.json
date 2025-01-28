@@ -18,7 +18,8 @@
                 "https://chatgpt.com/*",
                 "https://claude.ai/*",
                 "https://gemini.google.com/*",
-                "https://apps.abacus.ai/*"
+                "https://apps.abacus.ai/*",
+                "https://chat.deepseek.com/*"
             ],
             "js": ["src/content.js"],
             "run_at": "document_idle"

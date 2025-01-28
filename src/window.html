@@ -9,23 +9,27 @@
 </head>
 
 <body>
-  <div class="wrapper">
-    <div class="main-panel">
-      <div class="sort-container">
-        <button class="updateButton" id="updateButton">⟳</button>
-      <button class="sortDirection" id="sortButton">Sorting</button>
+  <div class="wrapper" id="wrapper">
+    <div class="main-panel" id="mainPanel">
+      <div class="top-container">
+        <div class="sort-container" id="sortContainer">
+          <button class="update-button" id="updateButton">⟳</button>
+          <button class="sort-direction" id="sortButton">Sorting</button>
+        </div>
+        <div class="tabs-container" id="tabsList"></div>
+        <div class="buttons-container" id="buttonsContainer">
+          <button class="button" id="openHistoryButton">History</button>
+          <button class="button" id="openSavedPromptsButton">Saved Prompts</button>
+          <button class="button" id="openSettingsButton">Settings</button>
+        </div>
       </div>
-      <div class="tabs-container" id="tabsList"></div>
-      <div class="buttons-container">
-        <button class="button" id="openHistoryButton">History</button>
-        <button class="button" id="openSavedPromptsButton">Saved Prompts</button>
-        <button class="button" id="openSettingsButton">Settings</button>
-      </div>
-      <div class="textbox-container">
-        <textarea id="inputText" placeholder="Enter the prompt..."></textarea>
-        <div class="button-group">
-          <button class="button" id="sendButton"><b>Send</b></button>
-          <button class="button" id="savePromptButton">Save current prompt</button>
+      <div class="bottom-container" id="bottomContainer">
+        <div class="textbox-container">
+          <textarea id="inputText" placeholder="Enter the prompt..."></textarea>
+          <div class="button-group" id="buttonGroup">
+            <button class="button" id="sendButton"><b>Send</b></button>
+            <button class="button" id="savePromptButton">Save current prompt</button>
+          </div>
         </div>
       </div>
     </div>

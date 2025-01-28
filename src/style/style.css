@@ -3,19 +3,16 @@ body {
     min-height: 600px;
     margin: 0;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
     padding: 10px 20px 0;
     box-sizing: border-box;
 }
 
+/* Flex for main-panel and right-panel*/
 .wrapper {
     display: flex;
     flex-direction: row;
     height: 100%;
     overflow: hidden;
-    min-width: 730px;
-    min-height: 580px;
 }
 
 .main-panel {
@@ -24,6 +21,21 @@ body {
     flex-direction: column;
     overflow: hidden;
     min-width: 300px;
+    height: 100%;
+}
+
+.top-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.bottom-container {
+    flex-shrink: 0;
+    margin-top: auto;
+
 }
 
 .right-panel{

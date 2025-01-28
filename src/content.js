@@ -155,7 +155,6 @@ function simulateEnter(input) {
     });
     input.dispatchEvent(enterEvent);
 }
-
 //!SECTION - Utility functions
 
 //NOTE - Listener that receives messages from the background script. Its the way for extension to communicate with the webpage

@@ -189,17 +189,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 //SECTION - Tabs functions and event listeners
 
 //NOTE - Event listener for tab activation
-//FIXME
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    tabActivationTimes.set(activeInfo.tabId, Date.now());
+    tabActivationTimes.set(activeInfo.tabId.toString(), Date.now());
     // Save to storage for persistence
-    await chrome.storage.local.set({ tabActivationTimes: Object.fromEntries(tabActivationTimes) });
+    await chrome.storage.local.set({
+        tabActivationTimes: Object.fromEntries(tabActivationTimes)
+    });
 
-    // If tabs are sorted by recent updates, refresh the list
-    const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
-    if (areTabsRecentlyUpdated) {
-        await setTabsList();
-    }
+    // Refresh the tabs list on tab activation
+    await setTabsList();
 });
 
 //NOTE - Event listener for tab creation
@@ -297,29 +295,24 @@ async function setTabsList() {
 async function sortTabs(tabs) {
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
 
-    return [...tabs].sort((a, b) => {
-        if (areTabsRecentlyUpdated) {
-            // Get activation times, default to 0 if not found
+    if (areTabsRecentlyUpdated) {
+        // If "Display tabs in activation order" is enabled, sort only by activation time
+        return [...tabs].sort((a, b) => {
             const timeA = tabActivationTimes.get(a.id.toString()) || 0;
             const timeB = tabActivationTimes.get(b.id.toString()) || 0;
-
-            // Sort by activation time
-            if (sortDirection === "desc") {
-                return timeB - timeA;
-            } else {
-                return timeA - timeB;
-            }
-        } else {
-            // Original sort by tab ID
+            return timeB - timeA;
+        });
+    } else {
+        // Otherwise, sort by tab ID depending on the sort direction
+        return [...tabs].sort((a, b) => {
             if (sortDirection === "desc") {
                 return b.id - a.id;
             } else {
                 return a.id - b.id;
             }
-        }
-    });
+        });
+    }
 }
-
 
 //NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
 async function processTab(tab) {

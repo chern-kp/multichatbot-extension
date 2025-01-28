@@ -1,5 +1,7 @@
 //This file is injected into the webpage by the function processTab() in window.js
 
+if (!window.multiChatbotInitialized) {
+    window.multiChatbotInitialized = true;
 console.log("[content.js] Script loaded and running!");
 
 //NOTE - Site handler mapping
@@ -185,7 +187,7 @@ function simulateEnter(input) {
 //NOTE - Listener that receives messages from the background script. Its the way for extension to communicate with the webpage
 //Currently, it only listens for the "focusAndFill" action from window.js function processTab()
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-    console.log("Message received:", request);
+    console.log("Message received to event listener:", request);
 
     //If somehow the action is not "focusAndFill", return an error
     if (request.action !== "focusAndFill") {
@@ -231,3 +233,4 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
     return true;
 });
+}

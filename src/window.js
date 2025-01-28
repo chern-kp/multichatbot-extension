@@ -115,60 +115,64 @@ document.addEventListener("DOMContentLoaded", async function () {
     sendButton.addEventListener("click", async () => {
         console.log("[Window Script]: Send button clicked");
 
-        // Get the text from the input field
-        const text = document.getElementById("inputText").value.trim();
+        // Disable button and show processing state
+        sendButton.disabled = true;
+        const originalButtonText = sendButton.textContent;
+        sendButton.textContent = "Sending...";
 
-        // If the text is empty, do nothing.
-        if (!text) return;
+        try {
+            const text = document.getElementById("inputText").value.trim();
+            if (!text) return;
 
-        // Save the prompt to history
-        await saveToHistory(text);
+            await saveToHistory(text);
 
-        // Get the selected tabs from storage
-        const { selectedTabs = {} } = await chrome.storage.local.get(
-            "selectedTabs"
-        );
-        console.log(
-            "[Window Script]: Selected tabs for sending:",
-            selectedTabs
-        );
+            // Get current tabs and create a Set of valid tab IDs
+            const currentTabs = await chrome.tabs.query({});
+            const currentTabIds = new Set(currentTabs.map(tab => tab.id));
 
-        // Get the tab IDs of the selected tabs
-        const selectedTabIds = Object.keys(selectedTabs).map(Number);
-        console.log(
-            "[Window Script]: Selected tab IDs for sending:",
-            selectedTabIds
-        );
+            // Get selected tabs and filter out invalid ones
+            const { selectedTabs = {} } = await chrome.storage.local.get("selectedTabs");
+            const validSelectedTabIds = Object.keys(selectedTabs)
+                .map(Number)
+                .filter(id => currentTabIds.has(id));
 
-        // Iterate over the selected tabs and process each tab
-        for (const tabId of selectedTabIds) {
-            try {
-                // This will activate the tab. This means that the tab will be brought to the front.
-                await chrome.tabs.update(tabId, { active: true });
+            console.log("[Window Script]: Processing valid tabs:", validSelectedTabIds);
 
-                // Get information about the tab (like URL, title, etc.)
-                const tab = await chrome.tabs.get(tabId);
+            // Clean up selectedTabs storage
+            const cleanedSelectedTabs = {};
+            validSelectedTabIds.forEach(id => {
+                cleanedSelectedTabs[id] = true;
+            });
+            await chrome.storage.local.set({ selectedTabs: cleanedSelectedTabs });
 
-                // LINK - Call the processTab function to process the tab
-                await processTab(tab);
+            // Process valid tabs
+            for (const tabId of validSelectedTabIds) {
+                try {
+                    const tab = await chrome.tabs.get(tabId);
+                    if (!tab) {
+                        console.warn(`[Window Script]: Tab ${tabId} no longer exists`);
+                        continue;
+                    }
 
-                console.log(
-                    "[Window Script]: Processing for tab completed:",
-                    tabId
-                );
+                    await chrome.tabs.update(tabId, { active: true });
+                    await processTab(tab);
 
-                // Add a delay between tabs to avoid issues
-                //TODO - add custom delay option in settings
-                await new Promise((resolve) => setTimeout(resolve, 500));
-            } catch (error) {
-                console.error(
-                    "[Window Script]: Error processing tab:",
-                    tabId,
-                    error
-                );
+                    // Add delay between tabs
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+
+                    console.log("[Window Script]: Successfully processed tab:", tabId, tab.url);
+                } catch (error) {
+                    console.error(`[Window Script]: Failed to process tab ${tabId}:`, error);
+                }
             }
+        } catch (error) {
+            console.error("[Window Script]: Error in send button handler:", error);
+        } finally {
+            // Restore button state
+            sendButton.disabled = false;
+            sendButton.textContent = originalButtonText;
         }
-    });
+    });;
 
     const historyButton = document.getElementById("openHistoryButton");
     const savedPromptsButton = document.getElementById(
@@ -208,8 +212,22 @@ chrome.tabs.onCreated.addListener(async () => {
 });
 
 //NOTE - Event listener for tab removal
-chrome.tabs.onRemoved.addListener(async () => {
-    console.log("[Window Script]: Tab removed");
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+    console.log("[Window Script]: Tab removed:", tabId);
+
+    // Clean up selectedTabs
+    const { selectedTabs = {} } = await chrome.storage.local.get("selectedTabs");
+    if (selectedTabs[tabId]) {
+        delete selectedTabs[tabId];
+        await chrome.storage.local.set({ selectedTabs });
+    }
+
+    // Clean up activation times
+    tabActivationTimes.delete(tabId.toString());
+    await chrome.storage.local.set({
+        tabActivationTimes: Object.fromEntries(tabActivationTimes)
+    });
+
     await setTabsList();
 });
 
@@ -234,15 +252,27 @@ async function setTabsList() {
     }
 
     const tabs = await chrome.tabs.query({});
+    const currentTabIds = new Set(tabs.map(tab => tab.id));
+
+    // Clean up selectedTabs storage
     const { selectedTabs = {} } = await chrome.storage.local.get("selectedTabs");
+    const cleanedSelectedTabs = {};
+    Object.keys(selectedTabs)
+        .map(Number)
+        .filter(id => currentTabIds.has(id))
+        .forEach(id => {
+            cleanedSelectedTabs[id] = true;
+        });
+
+    await chrome.storage.local.set({ selectedTabs: cleanedSelectedTabs });
 
     // Clear the current list
     tabsListElement.innerHTML = "";
 
     // Sort the tabs
-    const sortedTabs = await sortTabs(tabs); // Use `await` here
+    const sortedTabs = await sortTabs(tabs);
 
-    // Create a tab item for each tab
+    // Create tab items
     sortedTabs.forEach((tab) => {
         console.log("[Window Script]: Creating tab item for:", tab.id, tab.title);
 
@@ -252,16 +282,12 @@ async function setTabsList() {
         const isSupported = isSupportedUrl(tab.url);
         tabItem.classList.add(isSupported ? "supported" : "unsupported");
 
-        // Create a checkbox for each tab
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.className = "tab-checkbox";
-        checkbox.checked = isSupported && (selectedTabs[tab.id] || false);
+        checkbox.checked = isSupported && (cleanedSelectedTabs[tab.id] || false);
         checkbox.dataset.tabId = tab.id;
-
-        if (!isSupported) {
-            checkbox.disabled = true;
-        }
+        checkbox.disabled = !isSupported;
 
         const title = document.createElement("div");
         title.className = "tab-title";
@@ -332,7 +358,7 @@ async function processTab(tab) {
 
         try {
             // LINK - Inject the content script into currently active tab using code from content.js
-            console.log("[Window Script]: Injecting content script");
+            console.log(`[Window Script]: Injecting content script  to tab ${tab.id} (${tab.url})`);
             await chrome.scripting.executeScript({
                 target: { tabId: tab.id }, //  Script is injected into the current tab
                 files: ["src/content.js"], //  Content script file
@@ -349,6 +375,7 @@ async function processTab(tab) {
             console.log("[Window Script]: Text to send:", text);
 
             // LINK - Send a message to the content script to focus and fill the input field
+            console.debug(`[Window] Sending message to tab ${tab.id}`);
             const response = await chrome.tabs.sendMessage(tab.id, {
                 action: "focusAndFill", //  We created action focusAndFill, which is recieved in content.js
                 text: text,
@@ -356,13 +383,12 @@ async function processTab(tab) {
             console.log("[Window Script]: Response received:", response);
 
             if (!response?.success) {
-                console.error(
-                    "[Window Script]: Failed to process tab:",
-                    response?.error || "Unknown error"
-                );
+                console.error(`[Window] Tab ${tab.id} failed processing:`, response.error);
             }
         } catch (error) {
-            console.error("[Window Script]: Error processing tab:", error);
+            console.error(`[Window] Critical error processing tab ${tab.id}:`, error);
+            if (error.message.includes("Cannot access contents")) {
+                console.warn("[Window] Possible permission issue - Check host permissions in manifest");}
         }
     }
 }

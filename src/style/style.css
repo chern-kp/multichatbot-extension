@@ -15,6 +15,11 @@ body {
     overflow: hidden;
 }
 
+button.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 .main-panel {
     display: flex;
     flex: 1;

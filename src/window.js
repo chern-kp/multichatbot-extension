@@ -27,8 +27,8 @@ let currentPanel = null;
 // Initialize the list of tabs
 let tabsListElement;
 
-//NOTE - Event listener for the DOMContentLoaded event.
-//We use this event to ensure that the DOM is fully loaded before we start interacting with it.
+// NOTE - Event listener for the DOMContentLoaded event.
+// We use this event to ensure that the DOM is fully loaded before we start interacting with it.
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("[Window Script]: DOMContentLoaded event fired");
 
@@ -42,8 +42,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     console.log("[Window Script]: Input text element:", inputText);
 
     const savePromptButton = document.getElementById("savePromptButton");
+    const sortButton = document.getElementById("sortButton");
 
-    //SECTION - Tabs in DOMContentLoaded event
+    // SECTION - Tabs in DOMContentLoaded event
 
     // Initialize activation times for existing tabs
     const tabs = await chrome.tabs.query({});
@@ -65,10 +66,22 @@ document.addEventListener("DOMContentLoaded", async function () {
         tabActivationTimes: Object.fromEntries(tabActivationTimes)
     });
 
-    // Get the saved sort direction from storage
-    const { savedSortDirection } = await chrome.storage.local.get(
-        "savedSortDirection"
-    );
+    // Load both sort settings from storage in a single call
+    const { savedSortDirection, areTabsRecentlyUpdated } = await chrome.storage.local.get([
+        "savedSortDirection",
+        "areTabsRecentlyUpdated"
+    ]);
+
+    // Disable sort button on startup if "Display tabs in activation order" is enabled
+    if (areTabsRecentlyUpdated) {
+        sortButton.disabled = true;
+        sortButton.classList.add("disabled");
+    } else {
+        sortButton.disabled = false;
+        sortButton.classList.remove("disabled");
+    }
+
+    // Load the saved sort direction if it exists
     if (savedSortDirection) {
         sortDirection = savedSortDirection;
     }
@@ -101,8 +114,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         await setTabsList();
     });
 
-    //!SECTION - Tabs in DOMContentLoaded event
-
     // Add event listener to the save prompt button. When clicked, save the prompt to the storage.
     savePromptButton.addEventListener("click", async () => {
         const text = document.getElementById("inputText").value.trim();
@@ -111,7 +122,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         await savePrompt(text);
     });
 
-    //NOTE - Send button functionality. When clicked, send the text to the selected tabs.
+    // NOTE - Send button functionality. When clicked, send the text to the selected tabs.
     sendButton.addEventListener("click", async () => {
         console.log("[Window Script]: Send button clicked");
 
@@ -172,23 +183,16 @@ document.addEventListener("DOMContentLoaded", async function () {
             sendButton.disabled = false;
             sendButton.textContent = originalButtonText;
         }
-    });;
+    });
 
+    // Right panel buttons
     const historyButton = document.getElementById("openHistoryButton");
-    const savedPromptsButton = document.getElementById(
-        "openSavedPromptsButton"
-    );
+    const savedPromptsButton = document.getElementById("openSavedPromptsButton");
     const settingsButton = document.getElementById("openSettingsButton");
 
-    historyButton.addEventListener("click", () =>
-        toggleRightPanel("history", historyButton)
-    );
-    savedPromptsButton.addEventListener("click", () =>
-        toggleRightPanel("saved", savedPromptsButton)
-    );
-    settingsButton.addEventListener("click", () =>
-        toggleRightPanel("settings", settingsButton)
-    );
+    historyButton.addEventListener("click", () => toggleRightPanel("history", historyButton));
+    savedPromptsButton.addEventListener("click", () => toggleRightPanel("saved", savedPromptsButton));
+    settingsButton.addEventListener("click", () => toggleRightPanel("settings", settingsButton));
 });
 
 //SECTION - Tabs functions and event listeners
@@ -320,25 +324,18 @@ async function setTabsList() {
 
 //NOTE - Function for sorting tabs
 async function sortTabs(tabs) {
+    // Check if the areTabsRecentlyUpdated setting is enabled
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
 
     if (areTabsRecentlyUpdated) {
-        // If "Display tabs in activation order" is enabled, sort only by activation time
+        // If areTabsRecentlyUpdated is enabled, sort tabs based on activation time
         return [...tabs].sort((a, b) => {
-            const timeA = tabActivationTimes.get(a.id.toString()) || 0;
-            const timeB = tabActivationTimes.get(b.id.toString()) || 0;
-            return timeB - timeA;
-        });
-    } else {
-        // Otherwise, sort by tab ID depending on the sort direction
-        return [...tabs].sort((a, b) => {
-            if (sortDirection === "desc") {
-                return b.id - a.id;
-            } else {
-                return a.id - b.id;
-            }
+            return (tabActivationTimes.get(b.id.toString()) || 0) - (tabActivationTimes.get(a.id.toString()) || 0);
         });
     }
+
+    // If areTabsRecentlyUpdated is disabled, sort tabs based on creation time
+    return [...tabs].sort((a, b) => (sortDirection === "desc" ? b.id - a.id : a.id - b.id));
 }
 
 //NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
@@ -635,6 +632,11 @@ async function setSettingsPanel() {
         await chrome.storage.local.set({
             areTabsRecentlyUpdated: e.target.checked,
         });
+
+        // Disable sort button if the checkbox is checked
+        sortButton.disabled = e.target.checked;
+        sortButton.classList.toggle("disabled", e.target.checked);
+
         //After checkbox status change, update the tabs list
         await setTabsList();
     });

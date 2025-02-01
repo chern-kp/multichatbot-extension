@@ -1,4 +1,46 @@
+/* ANCHOR Reset CSS */
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure,
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+/* ANCHOR Base styles */
 body {
+	line-height: 1;
     min-width: 750px;
     min-height: 600px;
     margin: 0;
@@ -7,17 +49,14 @@ body {
     box-sizing: border-box;
 }
 
+/* ANCHOR Layout styles */
+
 /* Flex for main-panel and right-panel*/
-.wrapper {
+.app-wrapper {
     display: flex;
     flex-direction: row;
     height: 100%;
     overflow: hidden;
-}
-
-button.disabled {
-    opacity: 0.5;
-    pointer-events: none;
 }
 
 .main-panel {
@@ -29,7 +68,7 @@ button.disabled {
     height: 100%;
 }
 
-.top-container {
+.main-panel__top-container {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -37,7 +76,7 @@ button.disabled {
     min-height: 0;
 }
 
-.bottom-container {
+.main-panel__bottom-container {
     flex-shrink: 0;
     margin-top: auto;
 
@@ -52,18 +91,19 @@ button.disabled {
     overflow-x: hidden;
 }
 
-.right-panel.visible {
-    display: block;
-}
-
-.button.active {
-    background-color: #e0e0e0;
-}
-
 .tabs-container {
     flex: 1;
     overflow-y: auto;
     margin-bottom: 16px;
+}
+
+.buttons-container {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 10px;
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .textbox-container {
@@ -71,6 +111,58 @@ button.disabled {
     background-color: white;
     width: 100%;
     margin-bottom: 16px;
+}
+
+.sort-container {
+    margin-bottom: 16px;
+    display: flex;
+}
+
+.history-container {
+    padding: 10px;
+    overflow-y: auto;
+    max-height: calc(100vh - 150px);
+}
+
+/* ANCHOR Module styles */
+.update-button {
+    font-weight: bold;
+    padding: 8px 4px;
+    background-color: white;
+    border: white 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    font-size: 14px;
+    padding: 0 8px;
+}
+
+.sort-button {
+    flex: 1;
+    font-weight: bold;
+    padding: 8px 4px;
+    background-color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.sort-button.desc::after {
+    content: " ↓";
+}
+
+.sort-button.asc::after {
+    content: " ↑";
+}
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    width: 100%;
 }
 
 .tab-checkbox {
@@ -87,20 +179,6 @@ button.disabled {
     text-overflow: ellipsis;
 }
 
-.tab-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    width: 100%;
-}
-
-.tab-content {
-    display: flex;
-    align-items: center;
-    flex-basis: 66.66%;
-    max-width: 66.66%;
-}
-
 .tab-url {
     color: #999;
     font-size: 0.8em;
@@ -109,22 +187,11 @@ button.disabled {
     text-overflow: ellipsis;
 }
 
-.tab-item.unsupported {
-    opacity: 0.5;
-    color: #666;
-    cursor: not-allowed;
-}
-
-.tab-item.unsupported .tab-checkbox {
-    cursor: not-allowed;
-    opacity: 0.5;
-}
-
 .tab-item.supported {
     color: #000;
 }
 
-#inputText {
+.input-text {
     width: 100%;
     min-height: 100px;
     padding: 8px;
@@ -134,68 +201,6 @@ button.disabled {
     box-sizing: border-box;
 }
 
-.sort-container {
-    margin-bottom: 16px;
-    display: flex;
-}
-
-#updateButton {
-    font-weight: bold;
-    padding: 8px 4px;
-    background-color: white;
-    border: white 1px solid;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
-    font-size: 14px;
-    padding: 0 8px;
-}
-
-#updateButton:hover {
-    background-color: #e0e0e0;
-}
-
-#sortButton {
-    flex: 1;
-    font-weight: bold;
-    padding: 8px 4px;
-    background-color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
-}
-
-#sortButton:hover {
-    background-color: #e0e0e0;
-}
-
-#sortButton.desc::after {
-    content: " ↓";
-}
-
-#sortButton.asc::after {
-    content: " ↑";
-}
-
-
-.buttons-container {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 10px;
-    flex-shrink: 0;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.history-container {
-    padding: 10px;
-    overflow-y: auto;
-    max-height: calc(100vh - 150px);
-}
-
 .history-item {
     display: flex;
     align-items: center;
@@ -203,10 +208,6 @@ button.disabled {
     border-bottom: 1px solid #eee;
     cursor: pointer;
     position: relative;
-}
-
-.history-item:hover {
-    background-color: #f5f5f5;
 }
 
 .history-text {
@@ -238,10 +239,6 @@ button.disabled {
     padding: 5px;
     font-size: 14px;
     visibility: visible;
-}
-
-.history-delete:hover {
-    color: #ff4444;
 }
 
 .empty-history {
@@ -323,4 +320,41 @@ button.disabled {
 
 .recently-activated-setting-checkbox{
     margin-left: 8px;
+}
+
+/* ANCHOR State styles */
+
+.right-panel.visible {
+    display: block;
+}
+
+.button.active {
+    background-color: #e0e0e0;
+}
+
+.update-button:hover {
+    background-color: #e0e0e0;
+}
+
+.sort-button:hover {
+    background-color: #e0e0e0;
+}
+
+.tab-item.unsupported {
+    opacity: 0.5;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.tab-item.unsupported .tab-checkbox {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.history-item:hover {
+    background-color: #f5f5f5;
+}
+
+.history-delete:hover {
+    color: #ff4444;
 }

@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     console.log("[Window Script]: Input text element:", inputText);
 
     const savePromptButton = document.getElementById("savePromptButton");
-    const sortButton = document.getElementById("sortButton");
+    const sortButton = document.querySelector(".sort-button");
 
     // SECTION - Tabs in DOMContentLoaded event
 
@@ -82,28 +82,27 @@ document.addEventListener("DOMContentLoaded", async function () {
         sortButton.classList.remove("disabled");
     }
 
-    // Load the saved sort direction if it exists
-    if (savedSortDirection) {
-        sortDirection = savedSortDirection;
-    }
-    sortButton.className = sortDirection;
+// Load the saved sort direction if it exists
+if (savedSortDirection) {
+    sortDirection = savedSortDirection;
+}
+sortButton.classList.add(sortDirection);
 
-    // Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
-    sortButton.addEventListener("click", async () => {
-        console.log("[Window Script]: Sort button clicked");
+// Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
+sortButton.addEventListener("click", async () => {
+    console.log("[Window Script]: Sort button clicked");
 
-        // Change the sort direction after each click
-        sortDirection = sortDirection === "desc" ? "asc" : "desc";
+    // Change the sort direction after each click
+    sortButton.classList.remove(sortDirection);
+    sortDirection = sortDirection === "desc" ? "asc" : "desc";
+    sortButton.classList.add(sortDirection);
 
-        // Save the sort direction to storage
-        await chrome.storage.local.set({ savedSortDirection: sortDirection });
+    // Save the sort direction to storage
+    await chrome.storage.local.set({ savedSortDirection: sortDirection });
 
-        // Update the class name of the sort button, so the icon changes (up/down arrow from CSS file)
-        sortButton.className = sortDirection;
-
-        // Update the tabs list after changing the sort direction
-        await setTabsList();
-    });
+    // Update the tabs list after changing the sort direction
+    await setTabsList();
+});
 
     // Update the tabs list when the window is loaded
     await setTabsList();
@@ -643,6 +642,7 @@ async function setSettingsPanel() {
         });
 
         // Disable sort button if the checkbox is checked
+        const sortButton = document.querySelector(".sort-button");
         sortButton.disabled = e.target.checked;
         sortButton.classList.toggle("disabled", e.target.checked);
 

@@ -76,6 +76,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (areTabsRecentlyUpdated) {
         sortButton.disabled = true;
         sortButton.classList.add("disabled");
+        sortDirection = "desc";
     } else {
         sortButton.disabled = false;
         sortButton.classList.remove("disabled");
@@ -328,10 +329,18 @@ async function sortTabs(tabs) {
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
 
     if (areTabsRecentlyUpdated) {
-        // If areTabsRecentlyUpdated is enabled, sort tabs based on activation time
-        return [...tabs].sort((a, b) => {
-            return (tabActivationTimes.get(b.id.toString()) || 0) - (tabActivationTimes.get(a.id.toString()) || 0);
-        });
+        // Check if we have any activation times recorded
+        const hasActivationTimes = Array.from(tabActivationTimes.values()).some(time => time !== null);
+
+        if (hasActivationTimes) {
+            // If we have activation times, sort by them
+            return [...tabs].sort((a, b) => {
+                return (tabActivationTimes.get(b.id.toString()) || 0) - (tabActivationTimes.get(a.id.toString()) || 0);
+            });
+        } else {
+            // If no activation times are recorded yet, sort by ID in descending order
+            return [...tabs].sort((a, b) => b.id - a.id);
+        }
     }
 
     // If areTabsRecentlyUpdated is disabled, sort tabs based on creation time

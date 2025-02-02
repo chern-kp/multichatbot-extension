@@ -1,3 +1,17 @@
+/* ANCHOR CSS Variables */
+:root {
+    --right-panel-width: 350px;
+    --color-primary: #000;
+    --color-secondary: #666;
+    --color-border: #ccc;
+    --color-hover-bg: #f5f5f5;
+    --color-hover-accent: #ff4444;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --border-radius: 4px;
+    --transition-duration: 0.2s;
+  }
+
 /* ANCHOR Reset CSS */
 html, body, div, span, applet, object, iframe,
 h1, h2, h3, h4, h5, h6, p, blockquote, pre,
@@ -39,15 +53,15 @@ table {
 }
 
 /* ANCHOR Base styles */
-body {
-	line-height: 1;
-    min-width: 750px;
-    min-height: 600px;
+html, body {
+    line-height: 1;
+    min-width: var(--min-width);
+    min-height: var(--min-height);
     margin: 0;
     height: 100vh;
-    padding: 10px 20px 0;
     box-sizing: border-box;
-}
+    overflow: hidden;
+  }
 
 /* ANCHOR Layout styles */
 
@@ -55,26 +69,30 @@ body {
 .app-wrapper {
     display: flex;
     flex-direction: row;
-    height: 100%;
+    height: calc(100vh - 20px);
     overflow: hidden;
-}
+    gap: var(--spacing-md);
+    padding: 10px 20px 10px;
 
-.main-panel {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    overflow: hidden;
-    min-width: 300px;
-    height: 100%;
-}
+  }
 
-.main-panel__top-container {
+  .main-panel {
     display: flex;
     flex-direction: column;
     flex: 1;
     overflow: hidden;
     min-height: 0;
-}
+    min-width: 300px;
+    height: 100%;
+  }
+
+  .main-panel__top-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
 
 .main-panel__bottom-container {
     flex-shrink: 0;
@@ -82,47 +100,49 @@ body {
 
 }
 
-.right-panel{
+.right-panel {
     flex: 1;
     display: none;
-    width: 350px;
-    min-width: 350px;
+    width: var(--right-panel-width);
+    min-width: var(--right-panel-width);
     flex-shrink: 0;
     overflow-x: hidden;
-}
+  }
 
-.tabs-container {
+  .tabs-container {
     flex: 1;
     overflow-y: auto;
-    margin-bottom: 16px;
-}
+    margin-bottom: var(--spacing-md);
+    min-height: 0;
+  }
 
-.buttons-container {
+  .buttons-container {
     display: flex;
     justify-content: space-between;
     padding: 10px 10px;
     flex-shrink: 0;
     width: 100%;
     box-sizing: border-box;
-}
+  }
 
-.textbox-container {
+  .textbox-container {
     flex-shrink: 0;
     background-color: white;
     width: 100%;
-    margin-bottom: 16px;
-}
+    max-height: 50vh;
+  }
 
-.sort-container {
-    margin-bottom: 16px;
+  .sort-container {
+    margin-bottom: var(--spacing-md);
     display: flex;
-}
+    gap: var(--spacing-sm);
+  }
 
-.history-container {
+  .history-container {
     padding: 10px;
     overflow-y: auto;
-    max-height: calc(100vh - 150px);
-}
+    max-height: calc(100svh - 150px);
+  }
 
 /* ANCHOR Module styles */
 .update-button {

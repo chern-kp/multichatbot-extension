@@ -6,12 +6,14 @@ MultiChatbot is a Google Chrome extension that allows you to interact with multi
 
 ## Supported Sites
 Supported sites (so far):
+- Google Search (https://google.com)
 - ChatGPT (https://chatgpt.com)
 - Claude AI (https://claude.ai)
 - Google Gemini (https://gemini.google.com)
 - DeepSeek (https://chat.deepseek.com)
 - Abacus AI, or ChatLLM (https://abacus.ai)
-- Google Search (https://google.com)
+- HuggingFace Chat (https://huggingface.co/chat/)
+- Perplexity (https://www.perplexity.ai)
 
 
 ## Usage

@@ -11,7 +11,10 @@ const siteHandlers = {
     'claude.ai': handleClaude,
     'apps.abacus.ai/chatllm': handleAbacusChat,
     'gemini.google.com': handleGemini,
-    'chat.deepseek.com': handleDeepSeek
+    'chat.deepseek.com': handleDeepSeek,
+    'huggingface.co/chat': handleHuggingFace,
+    'perplexity.ai': handlePerplexity
+
 };
 
 //SECTION - Site-specific handlers
@@ -143,6 +146,50 @@ function handleDeepSeek(text) {
 
     sendButton.click();
     return true;
+}
+
+//NOTE - Handler for HuggingFace Chat
+function handleHuggingFace(text) {
+    const input = document.querySelector('textarea[placeholder="Ask anything"]');
+    if (!input) return false;
+
+    input.value = text || "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const sendButton = document.querySelector('button[aria-label="Send message"]');
+    if (!sendButton || sendButton.disabled) {
+        simulateEnter(input);
+        return true;
+    }
+
+    sendButton.click();
+    return true;
+}
+
+//NOTE - Handler for Perplexity
+function handlePerplexity(text) {
+    const input = document.querySelector('textarea[placeholder="Ask anything..."]');
+    if (!input) return false;
+
+    input.value = text || "";
+    input.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // Wait for the button to become enabled
+    return new Promise(resolve => {
+        setTimeout(() => {
+            const button = document.querySelector('button[aria-label="Submit"]:not([disabled])');
+
+            if (button) {
+                button.click();
+                resolve(true);
+            } else {
+                simulateEnter(input);
+                resolve(true);
+            }
+        }, 300); // Delay before checking the button status
+    });
 }
 
 //!SECTION - Site-specific handlers

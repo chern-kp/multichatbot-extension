@@ -10,7 +10,9 @@
         "https://claude.ai/*",
         "https://gemini.google.com/*",
         "https://apps.abacus.ai/*",
-        "https://chat.deepseek.com/*"
+        "https://chat.deepseek.com/*",
+        "https://huggingface.co/chat/*",
+        "https://www.perplexity.ai/*"
     ],
     "content_scripts": [
         {
@@ -20,7 +22,9 @@
                 "https://claude.ai/*",
                 "https://gemini.google.com/*",
                 "https://apps.abacus.ai/*",
-                "https://chat.deepseek.com/*"
+                "https://chat.deepseek.com/*",
+                "https://huggingface.co/chat/*",
+                "https://www.perplexity.ai/*"
             ],
             "js": ["src/content.js"],
             "run_at": "document_idle"

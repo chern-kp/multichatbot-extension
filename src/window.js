@@ -7,7 +7,9 @@ const SUPPORTED_SITES = [
     "chatgpt.com",
     "claude.ai",
     "apps.abacus.ai",
-    "chat.deepseek.com"
+    "chat.deepseek.com",
+    "huggingface.co/chat",
+    "perplexity.ai"
 ];
 
 // Storage for latest tab activation times

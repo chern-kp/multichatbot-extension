@@ -9,7 +9,6 @@ Supported sites (so far):
 - Google Search (https://google.com)
 - ChatGPT (https://chatgpt.com)
 - Claude AI (https://claude.ai)
-- Google Gemini (https://gemini.google.com)
 - DeepSeek (https://chat.deepseek.com)
 - Abacus AI, or ChatLLM (https://abacus.ai)
 - HuggingFace Chat (https://huggingface.co/chat/)

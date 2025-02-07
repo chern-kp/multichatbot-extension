@@ -4,7 +4,6 @@ console.log("[Window Script]: Window script loaded");
 const SUPPORTED_SITES = [
     "google.com",
     "chatgpt.com",
-    "chatgpt.com",
     "claude.ai",
     "apps.abacus.ai",
     "chat.deepseek.com",

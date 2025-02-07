@@ -10,7 +10,6 @@ const siteHandlers = {
     'chatgpt.com': handleChatGPT,
     'claude.ai': handleClaude,
     'apps.abacus.ai/chatllm': handleAbacusChat,
-    'gemini.google.com': handleGemini,
     'chat.deepseek.com': handleDeepSeek,
     'huggingface.co/chat': handleHuggingFace,
     'perplexity.ai': handlePerplexity
@@ -94,34 +93,6 @@ function handleAbacusChat(text) {
             console.error("Error during Abacus submission:", error);
             return false;
         });
-}
-
-
-//NOTE - Handler for gemini.google.com
-//FIXME - Broken. Problem with strict Content Security Policy (CSP) restrictions maybe?
-async function handleGemini(text) {
-    console.log("[content.js] Handling Gemini input...");
-
-    for (let i = 0; i < 10; i++) {
-        const input = document.querySelector("rich-textarea .ql-editor") ||
-            (document.querySelector("rich-textarea")?.shadowRoot?.querySelector(".ql-editor"));
-
-        if (input) {
-            input.innerHTML = ""; // Clear existing content
-            const p = document.createElement("p");
-            p.textContent = text || "";
-            input.appendChild(p);
-
-            input.dispatchEvent(new Event("input", { bubbles: true }));
-            input.dispatchEvent(new Event("change", { bubbles: true }));
-
-            return clickSendButton(".send-button-container button", 100);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    return false;
 }
 
 //NOTE - Handler for deepseek.com

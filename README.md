@@ -13,7 +13,7 @@ Supported sites (so far):
 - Abacus AI, or ChatLLM (https://abacus.ai)
 - HuggingFace Chat (https://huggingface.co/chat/)
 - Perplexity (https://www.perplexity.ai)
-
+- Poe (https://poe.com/)
 
 ## Usage
 After installing an extension, you can open UI of the extension by left-clicking the extension icon on the browser toolbar. From there, you will see a list of all open browser tabs on the main panel of the interface. You can select the tabs you want to interact with by checking the corresponding boxes. Once you've chosen the necessary tabs, you can write your prompt and click the "Send" button to send the message to all selected tabs.

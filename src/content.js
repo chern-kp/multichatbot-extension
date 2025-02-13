@@ -12,8 +12,8 @@ const siteHandlers = {
     'apps.abacus.ai/chatllm': handleAbacusChat,
     'chat.deepseek.com': handleDeepSeek,
     'huggingface.co/chat': handleHuggingFace,
-    'perplexity.ai': handlePerplexity
-
+    'perplexity.ai': handlePerplexity,
+    'poe.com': handlePoe
 };
 
 //SECTION - Site-specific handlers
@@ -162,6 +162,26 @@ function handlePerplexity(text) {
         }, 300); // Delay before checking the button status
     });
 }
+
+//NOTE - Handler for Poe.com
+function handlePoe(text) {
+    const input = document.querySelector('textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Message"]');
+    if (!input) return false;
+
+    input.value = text || "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const sendButton = document.querySelector('button[data-button-send="true"][aria-label="Send message"]');
+    if (sendButton && !sendButton.disabled) {
+        sendButton.click();
+        return true;
+    }
+
+    simulateEnter(input);
+    return true;
+}
+
 
 //!SECTION - Site-specific handlers
 

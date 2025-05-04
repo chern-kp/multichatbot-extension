@@ -2,6 +2,7 @@ console.log("[Window Script]: Window script loaded");
 
 //NOTE - List of supported sites
 const SUPPORTED_SITES = [
+    "gemini.google.com",
     "google.com",
     "chatgpt.com",
     "claude.ai",
@@ -366,13 +367,7 @@ async function processTab(tab) {
         try {
             // LINK - Inject the content script into currently active tab using code from content.js
             console.log(`[Window Script]: Injecting content script  to tab ${tab.id} (${tab.url})`);
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id }, //  Script is injected into the current tab
-                files: ["src/content.js"], //  Content script file
-            });
-            console.log(
-                "[Window Script]: Content script injected successfully"
-            );
+            await injectContentScript(tab.id);
 
             // Delay to ensure that the content script is fully loaded
             console.log("[Window Script]: Waiting for initialization");
@@ -727,4 +722,54 @@ function formatDate(isoString) {
 //NOTE - Function to check if the URL is supported
 function isSupportedUrl(url) {
     return SUPPORTED_SITES.some((site) => url.includes(site));
+}
+
+/**
+ * Injects the content script into a tab if it's not already loaded
+ * This function prevents multiple injections of the same script,
+ * which helps avoid variable redeclaration errors
+ *
+ * @param {number} tabId - The ID of the tab to inject the script into
+ * @returns {Promise} A promise that resolves when the script is injected or already loaded
+ */
+function injectContentScript(tabId) {
+    return new Promise((resolve, reject) => {
+        // First, check if our content script is already loaded in the tab
+        chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            function: checkIfContentScriptLoaded
+        })
+        .then(result => {
+            // If the script is already loaded (indicated by the global marker)
+            if (result[0].result === true) {
+                console.log("[Window Script]: Content script already loaded");
+                resolve();
+            } else {
+                // If the script is not loaded yet, inject it into the tab
+                chrome.scripting.executeScript({
+                    target: { tabId: tabId },
+                    files: ["src/content.js"]
+                })
+                .then(() => {
+                    console.log("[Window Script]: Content script injected successfully");
+                    resolve();
+                })
+                .catch(error => {
+                    console.error("[Window Script]: Error injecting content script:", error);
+                    reject(error);
+                });
+            }
+        });
+    });
+}
+
+/**
+ * Checks if the content script has been loaded in a page
+ * This function runs in the context of the target tab and checks for
+ * the global marker we set when the script initializes
+ *
+ * @returns {boolean} True if the content script has already been loaded
+ */
+function checkIfContentScriptLoaded() {
+    return window.__contentScriptLoaded === true;
 }

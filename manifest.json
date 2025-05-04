@@ -5,6 +5,7 @@
     "description": "Speak with multiple chatbots from one text box",
     "permissions": ["activeTab", "storage", "scripting", "tabs", "windows"],
     "host_permissions": [
+        "https://gemini.google.com/*",
         "https://google.com/*",
         "https://chatgpt.com/*",
         "https://claude.ai/*",
@@ -17,6 +18,7 @@
     "content_scripts": [
         {
             "matches": [
+                "https://gemini.google.com/*",
                 "https://*.google.com/*",
                 "https://chatgpt.com/*",
                 "https://claude.ai/*",

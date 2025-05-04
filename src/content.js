@@ -54,10 +54,17 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for Claude.ai
     function handleClaude(text) {
-        const input = document.querySelector(
-            'div[contenteditable="true"].ProseMirror'
-        );
-        if (!input) return false;
+        // Try multiple ways to find the input element
+        const possibleInputs = [
+            document.querySelector('div[contenteditable="true"].ProseMirror'),
+            document.querySelector('div.ProseMirror[contenteditable="true"]'),
+            document.querySelector('div[aria-label="Write your prompt to Claude"][contenteditable="true"]'),
+            document.querySelector('div[contenteditable="true"]'), // Generic fallback
+        ].filter(Boolean);
+
+        if (possibleInputs.length === 0) return false;
+
+        const input = possibleInputs[0];
 
         if (window.location.href.includes("claude.ai")) {
             // Claude needs a small delay for reliable input
@@ -71,11 +78,30 @@ if (window.__contentScriptLoaded) {
                     input.dispatchEvent(new Event("input", { bubbles: true }));
                     input.dispatchEvent(new Event("change", { bubbles: true }));
 
+                    // Try to click the send button first
+                    const sendButtonSelectors = [
+                        'button[aria-label="Send message"]',
+                        'button[aria-label="Send Message"]',
+                        'button[type="button"][aria-label="Send message"]',
+                        // Fallbacks if button can't be found by attributes
+                        'button.rounded-lg svg[viewBox="0 0 256 256"]', // Try finding by SVG shape
+                        'button.bg-accent-main-000' // Try by class
+                    ];
+
+                    // Try each button selector in order
+                    for (const selector of sendButtonSelectors) {
+                        const success = await clickSendButton(selector);
+                        if (success) {
+                            console.log(`[content.js] Claude message sent using selector: ${selector}`);
+                            resolve(true);
+                            return;
+                        }
+                    }
+
+                    // If no button could be found or clicked, try Enter key
+                    console.log("[content.js] Claude message send button not found, trying Enter key");
                     simulateEnter(input);
-                    const success = await clickSendButton(
-                        'button[aria-label="Send Message"]'
-                    );
-                    resolve(success);
+                    resolve(true);
                 }, 2000);
             });
         }
@@ -238,17 +264,40 @@ if (window.__contentScriptLoaded) {
     function clickSendButton(buttonSelector, waitTime = 100) {
         return new Promise((resolve) => {
             setTimeout(() => {
+                console.log(`[content.js] Attempting to find send button with selector: ${buttonSelector}`);
                 const button = document.querySelector(buttonSelector);
 
                 if (button && !button.disabled) {
-                    const clickEvent = new MouseEvent("click", {
-                        bubbles: true,
-                        cancelable: true,
-                        view: window,
-                    });
-                    button.dispatchEvent(clickEvent);
-                    resolve(true);
+                    console.log(`[content.js] Button found, attempting to click`);
+                    // Try to check if the button is visible and clickable
+                    const rect = button.getBoundingClientRect();
+                    const isVisible = rect.width > 0 && rect.height > 0;
+
+                    if (!isVisible) {
+                        console.log(`[content.js] Button found but not visible`);
+                        resolve(false);
+                        return;
+                    }
+
+                    try {
+                        const clickEvent = new MouseEvent("click", {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window,
+                        });
+                        button.dispatchEvent(clickEvent);
+                        console.log(`[content.js] Button clicked successfully`);
+                        resolve(true);
+                    } catch (error) {
+                        console.error(`[content.js] Error clicking button:`, error);
+                        resolve(false);
+                    }
                 } else {
+                    if (!button) {
+                        console.log(`[content.js] No button found with selector: ${buttonSelector}`);
+                    } else if (button.disabled) {
+                        console.log(`[content.js] Button found but is disabled`);
+                    }
                     resolve(false);
                 }
             }, waitTime);

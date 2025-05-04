@@ -10,11 +10,12 @@ const SUPPORTED_SITES = [
     "chat.deepseek.com",
     "huggingface.co/chat",
     "perplexity.ai",
-    "poe.com"
+    "poe.com",
 ];
 
 // Storage for latest tab activation times
-let tabActivationTimes = new Map();
+// Global variable for storing tab activation times
+let tabActivationTimes = {};
 
 // Maximum number of history items to keep
 const MAX_HISTORY_ITEMS = 100;
@@ -29,6 +30,68 @@ let currentPanel = null;
 
 // Initialize the list of tabs
 let tabsListElement;
+
+// Helper function for initializing tab data
+async function initializeTabData() {
+    console.log("[Window Script]: Initializing tab data");
+
+    try {
+        // Get list of all tabs
+        const tabs = await chrome.tabs.query({});
+        console.log("[Window Script]: Found", tabs.length, "tabs");
+
+        // Get saved activation times
+        const { tabActivationTimes: savedTimes = {} } =
+            await chrome.storage.local.get("tabActivationTimes");
+        console.log(
+            "[Window Script]: Loaded activation times:",
+            Object.keys(savedTimes).length
+        );
+
+        // Update global variable with data from storage
+        tabActivationTimes = savedTimes;
+
+        // Clean up data for non-existent tabs
+        let hasChanges = false;
+        const validTabIds = new Set(tabs.map((tab) => tab.id));
+
+        for (const tabId in tabActivationTimes) {
+            if (!validTabIds.has(Number(tabId))) {
+                console.log(
+                    "[Window Script]: Removing stale tab data for",
+                    tabId
+                );
+                delete tabActivationTimes[tabId];
+                hasChanges = true;
+            }
+        }
+
+        // Add current time for tabs that don't have activation times
+        const currentTime = Date.now();
+        tabs.forEach((tab) => {
+            if (!tabActivationTimes[tab.id]) {
+                console.log(
+                    "[Window Script]: Adding missing activation time for tab",
+                    tab.id
+                );
+                tabActivationTimes[tab.id] = currentTime;
+                hasChanges = true;
+            }
+        });
+
+        // Save changes if needed
+        if (hasChanges) {
+            console.log("[Window Script]: Saving updated activation times");
+            await chrome.storage.local.set({ tabActivationTimes });
+        }
+
+        console.log("[Window Script]: Tab data initialization complete");
+        return tabActivationTimes;
+    } catch (error) {
+        console.error("[Window Script]: Error initializing tab data:", error);
+        return {};
+    }
+}
 
 // NOTE - Event listener for the DOMContentLoaded event.
 // We use this event to ensure that the DOM is fully loaded before we start interacting with it.
@@ -49,63 +112,48 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // SECTION - Tabs in DOMContentLoaded event
 
-    // Initialize activation times for existing tabs
-    const tabs = await chrome.tabs.query({});
-    const currentTime = Date.now();
-    const { tabActivationTimes: savedTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
+    // Load settings and initialize tab data
+    const { areTabsRecentlyUpdated = false, savedSortDirection = "desc" } =
+        await chrome.storage.local.get([
+            "areTabsRecentlyUpdated",
+            "savedSortDirection",
+        ]);
 
-    // Load saved activation times
-    tabActivationTimes = new Map(Object.entries(savedTimes));
+    // Apply sort direction from storage
+    if (savedSortDirection) {
+        sortDirection = savedSortDirection;
+    }
+    sortButton.classList.add(sortDirection);
 
-    // Initialize times for tabs that don't have them
-    tabs.forEach(tab => {
-        if (!tabActivationTimes.has(tab.id.toString())) {
-            tabActivationTimes.set(tab.id.toString(), currentTime);
-        }
-    });
+    // Initialize tab data regardless of the setting
+    await initializeTabData();
 
-    // Save updated activation times
-    await chrome.storage.local.set({
-        tabActivationTimes: Object.fromEntries(tabActivationTimes)
-    });
-
-    // Load both sort settings from storage in a single call
-    const { savedSortDirection, areTabsRecentlyUpdated } = await chrome.storage.local.get([
-        "savedSortDirection",
-        "areTabsRecentlyUpdated"
-    ]);
-
-    // Disable sort button on startup if "Display tabs in activation order" is enabled
+    // Disable sort button if "Display tabs in activation order" is enabled
     if (areTabsRecentlyUpdated) {
+        console.log("[Window Script]: Tab activation order is enabled");
         sortButton.disabled = true;
         sortButton.classList.add("disabled");
-        sortDirection = "desc";
     } else {
+        console.log("[Window Script]: Using standard sorting");
         sortButton.disabled = false;
         sortButton.classList.remove("disabled");
     }
 
-// Load the saved sort direction if it exists
-if (savedSortDirection) {
-    sortDirection = savedSortDirection;
-}
-sortButton.classList.add(sortDirection);
+    // Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
+    sortButton.addEventListener("click", async () => {
+        console.log("[Window Script]: Sort button clicked");
 
-// Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
-sortButton.addEventListener("click", async () => {
-    console.log("[Window Script]: Sort button clicked");
+        // Change the sort direction after each click
+        sortButton.classList.remove(sortDirection);
+        sortDirection = sortDirection === "desc" ? "asc" : "desc";
+        sortButton.classList.add(sortDirection);
 
-    // Change the sort direction after each click
-    sortButton.classList.remove(sortDirection);
-    sortDirection = sortDirection === "desc" ? "asc" : "desc";
-    sortButton.classList.add(sortDirection);
+        // Save the sort direction to storage
+        await chrome.storage.local.set({ savedSortDirection: sortDirection });
 
-    // Save the sort direction to storage
-    await chrome.storage.local.set({ savedSortDirection: sortDirection });
-
-    // Update the tabs list after changing the sort direction
-    await setTabsList();
-});
+        // Update the tabs list after changing the sort direction
+        await setTabsList();
+    });
 
     // Update the tabs list when the window is loaded
     await setTabsList();
@@ -142,29 +190,38 @@ sortButton.addEventListener("click", async () => {
 
             // Get current tabs and create a Set of valid tab IDs
             const currentTabs = await chrome.tabs.query({});
-            const currentTabIds = new Set(currentTabs.map(tab => tab.id));
+            const currentTabIds = new Set(currentTabs.map((tab) => tab.id));
 
             // Get selected tabs and filter out invalid ones
-            const { selectedTabs = {} } = await chrome.storage.local.get("selectedTabs");
+            const { selectedTabs = {} } = await chrome.storage.local.get(
+                "selectedTabs"
+            );
             const validSelectedTabIds = Object.keys(selectedTabs)
                 .map(Number)
-                .filter(id => currentTabIds.has(id));
+                .filter((id) => currentTabIds.has(id));
 
-            console.log("[Window Script]: Processing valid tabs:", validSelectedTabIds);
+            console.log(
+                "[Window Script]: Processing valid tabs:",
+                validSelectedTabIds
+            );
 
             // Clean up selectedTabs storage
             const cleanedSelectedTabs = {};
-            validSelectedTabIds.forEach(id => {
+            validSelectedTabIds.forEach((id) => {
                 cleanedSelectedTabs[id] = true;
             });
-            await chrome.storage.local.set({ selectedTabs: cleanedSelectedTabs });
+            await chrome.storage.local.set({
+                selectedTabs: cleanedSelectedTabs,
+            });
 
             // Process valid tabs
             for (const tabId of validSelectedTabIds) {
                 try {
                     const tab = await chrome.tabs.get(tabId);
                     if (!tab) {
-                        console.warn(`[Window Script]: Tab ${tabId} no longer exists`);
+                        console.warn(
+                            `[Window Script]: Tab ${tabId} no longer exists`
+                        );
                         continue;
                     }
 
@@ -174,13 +231,23 @@ sortButton.addEventListener("click", async () => {
                     // Add delay between tabs
                     await new Promise((resolve) => setTimeout(resolve, 500));
 
-                    console.log("[Window Script]: Successfully processed tab:", tabId, tab.url);
+                    console.log(
+                        "[Window Script]: Successfully processed tab:",
+                        tabId,
+                        tab.url
+                    );
                 } catch (error) {
-                    console.error(`[Window Script]: Failed to process tab ${tabId}:`, error);
+                    console.error(
+                        `[Window Script]: Failed to process tab ${tabId}:`,
+                        error
+                    );
                 }
             }
         } catch (error) {
-            console.error("[Window Script]: Error in send button handler:", error);
+            console.error(
+                "[Window Script]: Error in send button handler:",
+                error
+            );
         } finally {
             // Restore button state
             sendButton.disabled = false;
@@ -190,23 +257,40 @@ sortButton.addEventListener("click", async () => {
 
     // Right panel buttons
     const historyButton = document.getElementById("openHistoryButton");
-    const savedPromptsButton = document.getElementById("openSavedPromptsButton");
+    const savedPromptsButton = document.getElementById(
+        "openSavedPromptsButton"
+    );
     const settingsButton = document.getElementById("openSettingsButton");
 
-    historyButton.addEventListener("click", () => toggleRightPanel("history", historyButton));
-    savedPromptsButton.addEventListener("click", () => toggleRightPanel("saved", savedPromptsButton));
-    settingsButton.addEventListener("click", () => toggleRightPanel("settings", settingsButton));
+    historyButton.addEventListener("click", () =>
+        toggleRightPanel("history", historyButton)
+    );
+    savedPromptsButton.addEventListener("click", () =>
+        toggleRightPanel("saved", savedPromptsButton)
+    );
+    settingsButton.addEventListener("click", () =>
+        toggleRightPanel("settings", settingsButton)
+    );
 });
 
 //SECTION - Tabs functions and event listeners
 
 //NOTE - Event listener for tab activation
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    tabActivationTimes.set(activeInfo.tabId.toString(), Date.now());
-    // Save to storage for persistence
-    await chrome.storage.local.set({
-        tabActivationTimes: Object.fromEntries(tabActivationTimes)
-    });
+    console.log("[Window Script]: Tab activated:", activeInfo.tabId);
+
+    // Get current data
+    const { tabActivationTimes: currentData = {} } =
+        await chrome.storage.local.get("tabActivationTimes");
+
+    // Update activation time for current tab
+    currentData[activeInfo.tabId] = Date.now();
+
+    // Save updated data
+    await chrome.storage.local.set({ tabActivationTimes: currentData });
+
+    // Update local copy
+    tabActivationTimes = currentData;
 
     // Refresh the tabs list on tab activation
     await setTabsList();
@@ -223,17 +307,24 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     console.log("[Window Script]: Tab removed:", tabId);
 
     // Clean up selectedTabs
-    const { selectedTabs = {} } = await chrome.storage.local.get("selectedTabs");
+    const { selectedTabs = {} } = await chrome.storage.local.get(
+        "selectedTabs"
+    );
     if (selectedTabs[tabId]) {
         delete selectedTabs[tabId];
         await chrome.storage.local.set({ selectedTabs });
     }
 
     // Clean up activation times
-    tabActivationTimes.delete(tabId.toString());
-    await chrome.storage.local.set({
-        tabActivationTimes: Object.fromEntries(tabActivationTimes)
-    });
+    const { tabActivationTimes: currentData = {} } =
+        await chrome.storage.local.get("tabActivationTimes");
+    if (currentData[tabId]) {
+        delete currentData[tabId];
+        await chrome.storage.local.set({ tabActivationTimes: currentData });
+
+        // Update local copy
+        tabActivationTimes = currentData;
+    }
 
     await setTabsList();
 });
@@ -241,7 +332,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 //NOTE - Event listener for tab updates (URL changes, etc.)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Only update when the tab is fully loaded or URL changes
-    if (changeInfo.status === 'complete' || changeInfo.url) {
+    if (changeInfo.status === "complete" || changeInfo.url) {
         console.log("[Window Script]: Tab updated:", tabId);
         await setTabsList();
     }
@@ -259,15 +350,17 @@ async function setTabsList() {
     }
 
     const tabs = await chrome.tabs.query({});
-    const currentTabIds = new Set(tabs.map(tab => tab.id));
+    const currentTabIds = new Set(tabs.map((tab) => tab.id));
 
     // Clean up selectedTabs storage
-    const { selectedTabs = {} } = await chrome.storage.local.get("selectedTabs");
+    const { selectedTabs = {} } = await chrome.storage.local.get(
+        "selectedTabs"
+    );
     const cleanedSelectedTabs = {};
     Object.keys(selectedTabs)
         .map(Number)
-        .filter(id => currentTabIds.has(id))
-        .forEach(id => {
+        .filter((id) => currentTabIds.has(id))
+        .forEach((id) => {
             cleanedSelectedTabs[id] = true;
         });
 
@@ -281,7 +374,11 @@ async function setTabsList() {
 
     // Create tab items
     sortedTabs.forEach((tab) => {
-        console.log("[Window Script]: Creating tab item for:", tab.id, tab.title);
+        console.log(
+            "[Window Script]: Creating tab item for:",
+            tab.id,
+            tab.title
+        );
 
         const tabItem = document.createElement("div");
         tabItem.className = "tab-item";
@@ -292,7 +389,8 @@ async function setTabsList() {
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.className = "tab-checkbox";
-        checkbox.checked = isSupported && (cleanedSelectedTabs[tab.id] || false);
+        checkbox.checked =
+            isSupported && (cleanedSelectedTabs[tab.id] || false);
         checkbox.dataset.tabId = tab.id;
         checkbox.disabled = !isSupported;
 
@@ -313,7 +411,9 @@ async function setTabsList() {
 
         if (isSupported) {
             checkbox.addEventListener("change", async () => {
-                const { selectedTabs = {} } = await chrome.storage.local.get("selectedTabs");
+                const { selectedTabs = {} } = await chrome.storage.local.get(
+                    "selectedTabs"
+                );
                 if (checkbox.checked) {
                     selectedTabs[tab.id] = true;
                 } else {
@@ -327,26 +427,55 @@ async function setTabsList() {
 
 //NOTE - Function for sorting tabs
 async function sortTabs(tabs) {
-    // Check if the areTabsRecentlyUpdated setting is enabled
-    const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
+    // Check if the areTabsRecentlyUpdated setting is enabled. If it is, we will sort the tabs by activation time.
+    const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
+        "areTabsRecentlyUpdated"
+    );
 
     if (areTabsRecentlyUpdated) {
-        // Check if we have any activation times recorded
-        const hasActivationTimes = Array.from(tabActivationTimes.values()).some(time => time !== null);
+        // Get current activation times
+        const activationTimes = tabActivationTimes || {};
 
-        if (hasActivationTimes) {
-            // If we have activation times, sort by them
+        // Log data for debugging
+        console.log(
+            "[Window Script]: Using activation times for sorting. Data available for",
+            Object.keys(activationTimes).length,
+            "tabs"
+        );
+
+        // Sort by activation time if we have data
+        if (Object.keys(activationTimes).length > 0) {
+            // First create a mapping of tab IDs to activation times
+            const tabTimeMap = new Map();
+
+            // For each tab, find its activation time or use 0 as fallback
+            tabs.forEach((tab) => {
+                tabTimeMap.set(tab.id, activationTimes[tab.id] || 0);
+            });
+
+            // Sort tabs by activation time (most recent first)
             return [...tabs].sort((a, b) => {
-                return (tabActivationTimes.get(b.id.toString()) || 0) - (tabActivationTimes.get(a.id.toString()) || 0);
+                const timeA = tabTimeMap.get(a.id) || 0;
+                const timeB = tabTimeMap.get(b.id) || 0;
+                return timeB - timeA; // Descending order (most recent first)
             });
         } else {
-            // If no activation times are recorded yet, sort by ID in descending order
+            // If no activation data available, fall back to ID-based sorting (newest first)
+            console.log(
+                "[Window Script]: No activation times available, sorting by tab ID"
+            );
             return [...tabs].sort((a, b) => b.id - a.id);
         }
     }
 
-    // If areTabsRecentlyUpdated is disabled, sort tabs based on creation time
-    return [...tabs].sort((a, b) => (sortDirection === "desc" ? b.id - a.id : a.id - b.id));
+    // If tracking is disabled, sort by tab ID based on selected direction
+    console.log(
+        "[Window Script]: Tab tracking disabled, sorting by ID with direction:",
+        sortDirection
+    );
+    return [...tabs].sort((a, b) =>
+        sortDirection === "desc" ? b.id - a.id : a.id - b.id
+    );
 }
 
 //NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
@@ -366,7 +495,9 @@ async function processTab(tab) {
 
         try {
             // LINK - Inject the content script into currently active tab using code from content.js
-            console.log(`[Window Script]: Injecting content script  to tab ${tab.id} (${tab.url})`);
+            console.log(
+                `[Window Script]: Injecting content script  to tab ${tab.id} (${tab.url})`
+            );
             await injectContentScript(tab.id);
 
             // Delay to ensure that the content script is fully loaded
@@ -385,12 +516,21 @@ async function processTab(tab) {
             console.log("[Window Script]: Response received:", response);
 
             if (!response?.success) {
-                console.error(`[Window] Tab ${tab.id} failed processing:`, response.error);
+                console.error(
+                    `[Window] Tab ${tab.id} failed processing:`,
+                    response.error
+                );
             }
         } catch (error) {
-            console.error(`[Window] Critical error processing tab ${tab.id}:`, error);
+            console.error(
+                `[Window] Critical error processing tab ${tab.id}:`,
+                error
+            );
             if (error.message.includes("Cannot access contents")) {
-                console.warn("[Window] Possible permission issue - Check host permissions in manifest");}
+                console.warn(
+                    "[Window] Possible permission issue - Check host permissions in manifest"
+                );
+            }
         }
     }
 }
@@ -622,7 +762,8 @@ async function setSettingsPanel() {
         "recently-activated-setting-checkbox";
     areTabsRecentlyActivatedCheckbox.style.marginLeft = "10px";
 
-    const areTabsRecentlyActivatedCheckboxLabel = document.createElement("label");
+    const areTabsRecentlyActivatedCheckboxLabel =
+        document.createElement("label");
     areTabsRecentlyActivatedCheckboxLabel.for = "recentlyUpdatedCheckbox";
     areTabsRecentlyActivatedCheckboxLabel.textContent =
         "Display tabs in activation order, instead of creation order";
@@ -632,28 +773,34 @@ async function setSettingsPanel() {
 
     rightPanel.appendChild(settingContainer);
 
-    //Save the setting to storage
+    // Save the setting to storage
     areTabsRecentlyActivatedCheckbox.addEventListener("change", async (e) => {
+        const isEnabled = e.target.checked;
+
+        // Update the setting in storage
         await chrome.storage.local.set({
-            areTabsRecentlyUpdated: e.target.checked,
+            areTabsRecentlyUpdated: isEnabled,
         });
+
+        console.log(
+            "[Window Script]: Tab activation sorting changed to:",
+            isEnabled
+        );
 
         // Disable sort button if the checkbox is checked
         const sortButton = document.querySelector(".sort-button");
-        sortButton.disabled = e.target.checked;
-        sortButton.classList.toggle("disabled", e.target.checked);
+        sortButton.disabled = isEnabled;
+        sortButton.classList.toggle("disabled", isEnabled);
 
-        //After checkbox status change, update the tabs list
+        // After checkbox status change, update the tabs list
         await setTabsList();
     });
 
-
-    //Display checkbox status from storage
+    // Display checkbox status from storage
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
         "areTabsRecentlyUpdated"
     );
     areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
-
 }
 
 //!SECTION - Right panel functions
@@ -735,31 +882,40 @@ function isSupportedUrl(url) {
 function injectContentScript(tabId) {
     return new Promise((resolve, reject) => {
         // First, check if our content script is already loaded in the tab
-        chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            function: checkIfContentScriptLoaded
-        })
-        .then(result => {
-            // If the script is already loaded (indicated by the global marker)
-            if (result[0].result === true) {
-                console.log("[Window Script]: Content script already loaded");
-                resolve();
-            } else {
-                // If the script is not loaded yet, inject it into the tab
-                chrome.scripting.executeScript({
-                    target: { tabId: tabId },
-                    files: ["src/content.js"]
-                })
-                .then(() => {
-                    console.log("[Window Script]: Content script injected successfully");
+        chrome.scripting
+            .executeScript({
+                target: { tabId: tabId },
+                function: checkIfContentScriptLoaded,
+            })
+            .then((result) => {
+                // If the script is already loaded (indicated by the global marker)
+                if (result[0].result === true) {
+                    console.log(
+                        "[Window Script]: Content script already loaded"
+                    );
                     resolve();
-                })
-                .catch(error => {
-                    console.error("[Window Script]: Error injecting content script:", error);
-                    reject(error);
-                });
-            }
-        });
+                } else {
+                    // If the script is not loaded yet, inject it into the tab
+                    chrome.scripting
+                        .executeScript({
+                            target: { tabId: tabId },
+                            files: ["src/content.js"],
+                        })
+                        .then(() => {
+                            console.log(
+                                "[Window Script]: Content script injected successfully"
+                            );
+                            resolve();
+                        })
+                        .catch((error) => {
+                            console.error(
+                                "[Window Script]: Error injecting content script:",
+                                error
+                            );
+                            reject(error);
+                        });
+                }
+            });
     });
 }
 

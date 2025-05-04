@@ -10,6 +10,49 @@ self.addEventListener('activate', () => {
   console.log('[Background] Service worker activated');
 });
 
+// Track tab activation to record last active tabs
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  console.log('[Background] Tab activated:', activeInfo.tabId);
+
+  // Get saved activation times
+  const { tabActivationTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
+
+  // Update time for current tab
+  tabActivationTimes[activeInfo.tabId] = Date.now();
+
+  // Save updated data
+  await chrome.storage.local.set({
+    tabActivationTimes: tabActivationTimes
+  });
+});
+
+// Clean up data when tabs are removed
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  console.log('[Background] Tab removed:', tabId);
+
+  // Get saved data
+  const { tabActivationTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
+
+  // Remove data for this tab
+  if (tabActivationTimes[tabId]) {
+    delete tabActivationTimes[tabId];
+
+    // Save updated data
+    await chrome.storage.local.set({
+      tabActivationTimes: tabActivationTimes
+    });
+  }
+});
+
+// Listen for changes to the tracking setting
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.areTabsRecentlyUpdated) {
+    console.log('[Background] Tab tracking setting changed:',
+      changes.areTabsRecentlyUpdated.oldValue, '→',
+      changes.areTabsRecentlyUpdated.newValue);
+  }
+});
+
 // Handling the click event on the extension icon
 //TODO - FIX
 chrome.action.onClicked.addListener(async () => {

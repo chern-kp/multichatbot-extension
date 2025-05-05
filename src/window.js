@@ -66,15 +66,15 @@ async function initializeTabData() {
             }
         }
 
-        // Add current time for tabs that don't have activation times
-        const currentTime = Date.now();
+        // Assign a very old timestamp (0) for tabs that don't have activation times
+        // This ensures they appear at the end when sorting by most recent (desc)
         tabs.forEach((tab) => {
-            if (!tabActivationTimes[tab.id]) {
+            if (!(tab.id in tabActivationTimes)) { // Check if the key exists
                 console.log(
-                    "[Window Script]: Adding missing activation time for tab",
+                    "[Window Script]: Assigning default (old) activation time for tab",
                     tab.id
                 );
-                tabActivationTimes[tab.id] = currentTime;
+                tabActivationTimes[tab.id] = 0; // Assign 0 instead of Date.now()
                 hasChanges = true;
             }
         });
@@ -349,6 +349,10 @@ async function setTabsList() {
         }
     }
 
+    // Get current settings
+    const { areTabsRecentlyUpdated = false } = await chrome.storage.local.get("areTabsRecentlyUpdated");
+    console.log("[Window Script]: Tab activation order enabled:", areTabsRecentlyUpdated);
+
     const tabs = await chrome.tabs.query({});
     const currentTabIds = new Set(tabs.map((tab) => tab.id));
 
@@ -427,55 +431,38 @@ async function setTabsList() {
 
 //NOTE - Function for sorting tabs
 async function sortTabs(tabs) {
-    // Check if the areTabsRecentlyUpdated setting is enabled. If it is, we will sort the tabs by activation time.
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
         "areTabsRecentlyUpdated"
     );
 
     if (areTabsRecentlyUpdated) {
-        // Get current activation times
+        // Sort by activation time (most recent first)
+        console.log("[Window Script]: Sorting by activation time (most recent first).");
         const activationTimes = tabActivationTimes || {};
 
-        // Log data for debugging
-        console.log(
-            "[Window Script]: Using activation times for sorting. Data available for",
-            Object.keys(activationTimes).length,
-            "tabs"
+        // Create a map for quick time lookup, defaulting to 0 if not found
+        const tabTimeMap = new Map();
+        tabs.forEach((tab) => {
+            const time = activationTimes[tab.id] || 0;
+            tabTimeMap.set(tab.id, time);
+            // Keep detailed log for potential future debugging, can be removed later
+            console.log(`[Window Script]: Tab ${tab.id} mapped time:`, new Date(time).toISOString());
+        });
+
+        return [...tabs].sort((a, b) => {
+            const timeA = tabTimeMap.get(a.id);
+            const timeB = tabTimeMap.get(b.id);
+            // Sort primarily by time descending, secondarily by ID descending for stability
+            return (timeB - timeA) || (b.id - a.id);
+        });
+
+    } else {
+        // Sort by tab ID using the selected direction
+        console.log(`[Window Script]: Sorting by ID. Direction: ${sortDirection}`);
+        return [...tabs].sort((a, b) =>
+            sortDirection === "desc" ? b.id - a.id : a.id - b.id
         );
-
-        // Sort by activation time if we have data
-        if (Object.keys(activationTimes).length > 0) {
-            // First create a mapping of tab IDs to activation times
-            const tabTimeMap = new Map();
-
-            // For each tab, find its activation time or use 0 as fallback
-            tabs.forEach((tab) => {
-                tabTimeMap.set(tab.id, activationTimes[tab.id] || 0);
-            });
-
-            // Sort tabs by activation time (most recent first)
-            return [...tabs].sort((a, b) => {
-                const timeA = tabTimeMap.get(a.id) || 0;
-                const timeB = tabTimeMap.get(b.id) || 0;
-                return timeB - timeA; // Descending order (most recent first)
-            });
-        } else {
-            // If no activation data available, fall back to ID-based sorting (newest first)
-            console.log(
-                "[Window Script]: No activation times available, sorting by tab ID"
-            );
-            return [...tabs].sort((a, b) => b.id - a.id);
-        }
     }
-
-    // If tracking is disabled, sort by tab ID based on selected direction
-    console.log(
-        "[Window Script]: Tab tracking disabled, sorting by ID with direction:",
-        sortDirection
-    );
-    return [...tabs].sort((a, b) =>
-        sortDirection === "desc" ? b.id - a.id : a.id - b.id
-    );
 }
 
 //NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
@@ -777,10 +764,16 @@ async function setSettingsPanel() {
     areTabsRecentlyActivatedCheckbox.addEventListener("change", async (e) => {
         const isEnabled = e.target.checked;
 
+        console.log("[Window Script]: Saving tab activation setting:", isEnabled);
+
         // Update the setting in storage
         await chrome.storage.local.set({
             areTabsRecentlyUpdated: isEnabled,
         });
+
+        // Verify the setting was saved
+        const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
+        console.log("[Window Script]: Verified saved setting:", areTabsRecentlyUpdated);
 
         console.log(
             "[Window Script]: Tab activation sorting changed to:",
@@ -800,6 +793,7 @@ async function setSettingsPanel() {
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
         "areTabsRecentlyUpdated"
     );
+    console.log("[Window Script]: Loading initial setting value:", areTabsRecentlyUpdated);
     areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
 }
 

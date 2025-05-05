@@ -17,13 +17,13 @@
           <button class="sort-button" id="sortButton">Sorting</button>
         </div>
         <div class="tabs-container" id="tabsList"></div>
-        <div class="buttons-container">
+      </div>
+      <div class="main-panel__bottom-container">
+        <div class="buttons-container" style="margin-bottom: 10px;">
           <button class="button" id="openHistoryButton">History</button>
           <button class="button" id="openSavedPromptsButton">Saved Prompts</button>
           <button class="button" id="openSettingsButton">Settings</button>
         </div>
-      </div>
-      <div class="main-panel__bottom-container">
         <div class="textbox-container">
           <textarea class="input-text" id="inputText" placeholder="Enter the prompt..."></textarea>
           <div class="button-group">
@@ -34,8 +34,23 @@
       </div>
     </div>
     <div class="right-panel" id="rightPanel">
-      <button class="close-button" id="closePanel">✕</button>
-      <div class="panel-content" id="panelContent">
+      <div id="historySection" class="panel-section">
+        <h3>History</h3>
+        <div id="historyContainer" class="panel-content-area">
+          <!-- History items will be loaded here by JS -->
+        </div>
+      </div>
+      <div id="savedPromptsSection" class="panel-section">
+        <h3>Saved Prompts</h3>
+        <div id="savedPromptsContainer" class="panel-content-area">
+          <!-- Saved prompts will be loaded here by JS -->
+        </div>
+      </div>
+      <div id="settingsSection" class="panel-section">
+        <h3>Settings</h3>
+        <div id="settingsContainer" class="panel-content-area">
+          <!-- Settings controls will be loaded here by JS -->
+        </div>
       </div>
     </div>
   </div>

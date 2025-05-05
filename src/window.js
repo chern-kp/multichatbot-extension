@@ -536,74 +536,74 @@ async function processTab(tab) {
 //NOTE - Function to toggle the right panel
 async function toggleRightPanel(panelType, button) {
     const rightPanel = document.querySelector(".right-panel");
+    const sections = rightPanel.querySelectorAll('.panel-section');
 
     // If the panel is already visible and the same button is clicked, hide the panel
     if (activeButton === button) {
         rightPanel.classList.remove("visible");
         button.classList.remove("active");
+        // Hide all sections when panel is closed
+        sections.forEach(section => section.style.display = 'none');
         activeButton = null;
         currentPanel = null;
         return;
     }
 
-    // If the panel is not visible, show it
+    // Deactivate previously active button
     if (activeButton) {
         activeButton.classList.remove("active");
     }
 
-    // Add the active class to the clicked button
+    // Activate the new button
     button.classList.add("active");
     activeButton = button;
     currentPanel = panelType;
 
-    // Clear the current content, so we can re-render it
-    rightPanel.innerHTML = "";
+    // Hide all sections first
+    sections.forEach(section => section.style.display = 'none');
 
-    // Add the header to HTML
-    const header = document.createElement("h3");
-
+    // Show the target section and load its content
+    let targetSection;
     switch (panelType) {
         case "history":
-            header.textContent = "History";
-            rightPanel.appendChild(header);
+            targetSection = document.getElementById('historySection');
             await setHistoryPanel();
             break;
         case "saved":
-            header.textContent = "Saved Prompts";
-            rightPanel.appendChild(header);
+            targetSection = document.getElementById('savedPromptsSection');
             await setSavedPromptsPanel();
             break;
         case "settings":
-            header.textContent = "Settings";
-            rightPanel.appendChild(header);
+            targetSection = document.getElementById('settingsSection');
             await setSettingsPanel();
             break;
     }
 
-    // Add the right panel to the DOM
+    if (targetSection) {
+        targetSection.style.display = 'block';
+    }
+
+    // Ensure the main right panel is visible
     rightPanel.classList.add("visible");
 }
 
 //NOTE - Function to set the history panel
 async function setHistoryPanel() {
-    if (currentPanel !== "history") return;
+    // if (currentPanel !== "history") return; // Keep this check if needed, but toggle ensures context
 
-    const rightPanel = document.querySelector(".right-panel");
+    // Target the specific container for history items
+    const historyContainer = document.getElementById("historyContainer");
+    if (!historyContainer) {
+        console.error("[Window Script]: History container not found!");
+        return;
+    }
+
     const { requestHistory = [] } = await chrome.storage.local.get(
         "requestHistory"
     );
 
-    // Clear the current content, so we can re-render it
-    rightPanel.innerHTML = "";
-
-    // Add the header to HTML
-    const header = document.createElement("h3");
-    header.textContent = "History";
-    rightPanel.appendChild(header);
-
-    // Create a HTML/CSS container for history items
-    const historyContainer = document.createElement("div");
-    historyContainer.className = "history-container";
+    // Clear only the history container's content
+    historyContainer.innerHTML = "";
 
     if (requestHistory.length === 0) {
         const emptyMessage = document.createElement("div");
@@ -640,6 +640,7 @@ async function setHistoryPanel() {
                 await chrome.storage.local.set({
                     requestHistory: updatedHistory,
                 });
+                // Re-render the history panel content
                 setHistoryPanel();
             });
 
@@ -657,31 +658,34 @@ async function setHistoryPanel() {
             historyContainer.appendChild(historyItem);
         });
     }
-
-    // Add the history container to the right panel
-    rightPanel.appendChild(historyContainer);
 }
 
 //NOTE - Function to set the saved prompts panel
 async function setSavedPromptsPanel() {
-    if (currentPanel !== "saved") return;
+    // if (currentPanel !== "saved") return;
 
-    const rightPanel = document.querySelector(".right-panel");
+    // Target the specific container for saved prompts
+    const savedPromptsContainer = document.getElementById("savedPromptsContainer");
+    if (!savedPromptsContainer) {
+        console.error("[Window Script]: Saved prompts container not found!");
+        return;
+    }
+
     const { savedPrompts = [] } = await chrome.storage.local.get(
         "savedPrompts"
     ); // Get the saved prompts from storage
 
-    // Clear the current content, so we can re-render it
-    rightPanel.innerHTML = "";
+    // Clear only the saved prompts container's content
+    savedPromptsContainer.innerHTML = "";
 
-    // Add the header to HTML
-    const header = document.createElement("h3");
-    header.textContent = "Saved Prompts";
-    rightPanel.appendChild(header);
+    // Header is now static in HTML
+    // const header = document.createElement("h3");
+    // header.textContent = "Saved Prompts";
+    // rightPanel.appendChild(header);
 
-    // Create a HTML/CSS container for saved prompts
-    const savedPromptsContainer = document.createElement("div");
-    savedPromptsContainer.className = "saved-prompts-container";
+    // Create a HTML/CSS container for saved prompts - No, append directly to savedPromptsContainer
+    // const savedPromptsContainerElement = document.createElement("div");
+    // savedPromptsContainerElement.className = "saved-prompts-container"; // Class moved to HTML
 
     if (savedPrompts.length === 0) {
         const emptyMessage = document.createElement("div");
@@ -718,6 +722,7 @@ async function setSavedPromptsPanel() {
                 await chrome.storage.local.set({
                     savedPrompts: updatedPrompts,
                 });
+                // Re-render the saved prompts panel content
                 setSavedPromptsPanel();
             });
 
@@ -736,38 +741,53 @@ async function setSavedPromptsPanel() {
         });
     }
 
-    // Add the saved prompts container to the right panel
-    rightPanel.appendChild(savedPromptsContainer);
+    // Add the saved prompts container to the right panel - No
+    // rightPanel.appendChild(savedPromptsContainerElement);
 }
 
 //NOTE - Function to set the settings panel
 async function setSettingsPanel() {
-    if (currentPanel !== "settings") return;
+    // if (currentPanel !== "settings") return;
 
-    const rightPanel = document.querySelector(".right-panel");
+    // Target the specific container for settings content
+    const settingsContainer = document.getElementById("settingsContainer");
+    if (!settingsContainer) {
+        console.error("[Window Script]: Settings container not found!");
+        return;
+    }
 
-    const settingContainer = document.createElement("div");
-    settingContainer.className = "recently-updated-setting-container";
+    // Clear only the settings container's content
+    settingsContainer.innerHTML = "";
+
+    // Header is now static in HTML
+    // const header = document.createElement("h3");
+    // header.textContent = "Settings";
+    // rightPanel.appendChild(header); // No longer appending to rightPanel
+
+    const settingItemContainer = document.createElement("div");
+    settingItemContainer.className = "setting-item-container"; // Use a more specific class if needed
 
     // Create checkbox for setting "Display tabs in activation order, instead of creation order"
     const areTabsRecentlyActivatedCheckbox = document.createElement("input");
     areTabsRecentlyActivatedCheckbox.type = "checkbox";
+    areTabsRecentlyActivatedCheckbox.id = "recentlyUpdatedCheckbox"; // Add an ID for the label
     areTabsRecentlyActivatedCheckbox.className =
         "recently-activated-setting-checkbox";
-    areTabsRecentlyActivatedCheckbox.style.marginLeft = "10px";
+    // areTabsRecentlyActivatedCheckbox.style.marginLeft = "10px"; // Style using CSS class
 
     const areTabsRecentlyActivatedCheckboxLabel =
         document.createElement("label");
-    areTabsRecentlyActivatedCheckboxLabel.for = "recentlyUpdatedCheckbox";
+    areTabsRecentlyActivatedCheckboxLabel.htmlFor = "recentlyUpdatedCheckbox"; // Use htmlFor
     areTabsRecentlyActivatedCheckboxLabel.textContent =
-        "Display tabs in activation order, instead of creation order";
+        " Display tabs in activation order, instead of creation order"; // Add space for clarity
 
-    settingContainer.appendChild(areTabsRecentlyActivatedCheckbox);
-    settingContainer.appendChild(areTabsRecentlyActivatedCheckboxLabel);
+    settingItemContainer.appendChild(areTabsRecentlyActivatedCheckbox);
+    settingItemContainer.appendChild(areTabsRecentlyActivatedCheckboxLabel);
 
-    rightPanel.appendChild(settingContainer);
+    // Append the setting item container to the settings container
+    settingsContainer.appendChild(settingItemContainer);
 
-    // Save the setting to storage
+    // Save the setting to storage (event listener logic remains the same)
     areTabsRecentlyActivatedCheckbox.addEventListener("change", async (e) => {
         const isEnabled = e.target.checked;
 

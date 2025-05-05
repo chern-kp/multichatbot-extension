@@ -356,6 +356,13 @@ async function setTabsList() {
     const tabs = await chrome.tabs.query({});
     const currentTabIds = new Set(tabs.map((tab) => tab.id));
 
+    // Get the URL of the extension's window
+    const extensionWindowUrl = chrome.runtime.getURL("src/window.html");
+    console.log("[Window Script]: Extension window URL:", extensionWindowUrl);
+
+    // Filter out the extension's own window from the list of tabs
+    const filteredTabs = tabs.filter(tab => tab.url !== extensionWindowUrl);
+
     // Clean up selectedTabs storage
     const { selectedTabs = {} } = await chrome.storage.local.get(
         "selectedTabs"
@@ -373,8 +380,8 @@ async function setTabsList() {
     // Clear the current list
     tabsListElement.innerHTML = "";
 
-    // Sort the tabs
-    const sortedTabs = await sortTabs(tabs);
+    // Sort the *filtered* tabs
+    const sortedTabs = await sortTabs(filteredTabs);
 
     // Create tab items
     sortedTabs.forEach((tab) => {

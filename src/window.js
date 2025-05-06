@@ -13,6 +13,18 @@ const SUPPORTED_SITES = [
     "poe.com",
 ];
 
+//NOTE - Detailed information about supported sites
+const SUPPORTED_SITES_LINKS = {
+    "Google Gemini": "https://gemini.google.com/app",
+    "ChatGPT": "https://chat.openai.com",
+    "Claude AI": "https://claude.ai/chat",
+    "Anthropic Claude (Abacus)": "https://apps.abacus.ai/chat",
+    "DeepSeek Chat": "https://chat.deepseek.com",
+    "Hugging Face Chat": "https://huggingface.co/chat",
+    "Perplexity AI": "https://perplexity.ai",
+    "Poe": "https://poe.com"
+};
+
 // Storage for latest tab activation times
 // Global variable for storing tab activation times
 let tabActivationTimes = {};
@@ -338,7 +350,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         "openSavedPromptsButton"
     );
     const settingsButton = document.getElementById("openSettingsButton");
+    const supportedSitesButton = document.getElementById("openSupportedSitesButton");
 
+    supportedSitesButton.addEventListener("click", () =>
+        toggleRightPanel("supportedSites", supportedSitesButton)
+    );
     historyButton.addEventListener("click", () =>
         toggleRightPanel("history", historyButton)
     );
@@ -642,6 +658,10 @@ async function toggleRightPanel(panelType, button) {
     // Show the target section and load its content
     let targetSection;
     switch (panelType) {
+        case "supportedSites":
+            targetSection = document.getElementById('supportedSitesSection');
+            await setSupportedSitesPanel();
+            break;
         case "history":
             targetSection = document.getElementById('historySection');
             await setHistoryPanel();
@@ -662,6 +682,62 @@ async function toggleRightPanel(panelType, button) {
 
     // Ensure the main right panel is visible
     rightPanel.classList.add("visible");
+}
+
+//NOTE - Function to set the supported sites panel
+async function setSupportedSitesPanel() {
+    // Target the specific container for supported sites
+    const supportedSitesContainer = document.getElementById("supportedSitesContainer");
+    if (!supportedSitesContainer) {
+        console.error("[Window Script]: Supported sites container not found!");
+        return;
+    }
+
+    // Clear the container
+    supportedSitesContainer.innerHTML = "";
+
+    const sitesEntries = Object.entries(SUPPORTED_SITES_LINKS);
+    if (sitesEntries.length === 0) {
+        const emptyMessage = document.createElement("div");
+        emptyMessage.className = "empty-supported-sites";
+        emptyMessage.textContent = "No supported sites";
+        supportedSitesContainer.appendChild(emptyMessage);
+    } else {
+        // Create list of supported sites
+        sitesEntries.forEach(([name, url]) => {
+            const siteItem = document.createElement("div");
+            siteItem.className = "supported-site-item";
+
+            // Extract domain for favicon
+            const urlObj = new URL(url);
+            const domain = urlObj.hostname;
+
+            // Create favicon element
+            const favicon = document.createElement("img");
+            favicon.className = "supported-site-icon";
+            favicon.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+            favicon.alt = `${name} icon`;
+            favicon.width = 20;
+            favicon.height = 20;
+            favicon.onerror = () => {
+                // If favicon fails to load, use a generic icon
+                favicon.src = "icons/globe.svg";
+                console.log(`[Window Script]: Failed to load favicon for ${domain}`);
+            };
+
+            const siteText = document.createElement("a");
+            siteText.className = "supported-site-text";
+            siteText.textContent = name;
+            siteText.href = url;
+            siteText.target = "_blank";
+            siteText.title = `Open ${name}`;
+
+            // Add favicon and text to the item
+            siteItem.appendChild(favicon);
+            siteItem.appendChild(siteText);
+            supportedSitesContainer.appendChild(siteItem);
+        });
+    }
 }
 
 //NOTE - Function to set the history panel

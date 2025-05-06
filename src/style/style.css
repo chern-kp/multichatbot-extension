@@ -195,6 +195,8 @@ body {
     min-width: var(--right-panel-width);
     flex-shrink: 0;
     overflow-x: hidden;
+    height: 100%;
+    max-height: calc(100vh - 190px);
 }
 
 .tabs-container {
@@ -434,17 +436,25 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    max-height: calc(100vh - 190px);
 }
 
 .panel-section h3 {
     flex-shrink: 0;
     margin-bottom: var(--spacing-sm);
+    position: sticky;
+    top: 0;
+    background: white;
+    padding: 10px 0;
+    z-index: 1;
 }
 
 .panel-content-area {
     flex-grow: 1;
     overflow-y: auto;
     padding: 0 10px 10px;
+    height: calc(100% - 40px);
+    max-height: calc(100vh - 240px);
 }
 
 #historyContainer {
@@ -486,6 +496,7 @@ body {
 
 .right-panel.visible {
     display: block;
+    overflow-y: hidden;
 }
 
 .button.active {
@@ -517,4 +528,49 @@ body {
 
 .history-delete:hover {
     color: #ff4444;
+}
+
+.empty-supported-sites {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+}
+
+.supported-site-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eee;
+    transition: background-color var(--transition-duration);
+}
+
+.supported-site-item:hover {
+    background-color: var(--color-hover-bg);
+}
+
+.supported-site-icon {
+    margin-right: 12px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    display: block;
+}
+
+.supported-site-text {
+    color: #0066cc;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 500;
+    transition: color var(--transition-duration);
+    display: block;
+    width: 100%;
+}
+
+.supported-site-text:hover {
+    color: #004499;
+    text-decoration: underline;
+}
+
+#supportedSitesContainer {
+    padding: 10px 0;
+    overflow-y: auto;
 }

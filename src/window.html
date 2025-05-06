@@ -20,6 +20,7 @@
       </div>
       <div class="main-panel__bottom-container">
         <div class="buttons-container" style="margin-bottom: 10px;">
+          <button class="button" id="openSupportedSitesButton">Supported Sites</button>
           <button class="button" id="openHistoryButton">History</button>
           <button class="button" id="openSavedPromptsButton">Saved Prompts</button>
           <button class="button" id="openSettingsButton">Settings</button>
@@ -34,6 +35,12 @@
       </div>
     </div>
     <div class="right-panel" id="rightPanel">
+      <div id="supportedSitesSection" class="panel-section">
+        <h3>Supported Sites</h3>
+        <div id="supportedSitesContainer" class="panel-content-area">
+          <!-- Supported sites will be loaded here by JS -->
+        </div>
+      </div>
       <div id="historySection" class="panel-section">
         <h3>History</h3>
         <div id="historyContainer" class="panel-content-area">

@@ -110,6 +110,83 @@ document.addEventListener("DOMContentLoaded", async function () {
     const savePromptButton = document.getElementById("savePromptButton");
     const sortButton = document.querySelector(".sort-button");
 
+    // Data management buttons in settings
+    const exportPromptsButton = document.getElementById("exportPromptsButton");
+    const importPromptsButton = document.getElementById("importPromptsButton");
+
+    // Add event listener for export button
+    if (exportPromptsButton) {
+        exportPromptsButton.addEventListener("click", async () => {
+            console.log("[Window Script]: Export button clicked");
+            if (window.exportImport && typeof window.exportImport.exportSavedPrompts === 'function') {
+                const success = await window.exportImport.exportSavedPrompts();
+                if (success) {
+                    // Visual feedback that export was successful
+                    const originalText = exportPromptsButton.textContent;
+                    exportPromptsButton.textContent = "Exported ✓";
+                    setTimeout(() => {
+                        exportPromptsButton.textContent = originalText;
+                    }, 2000);
+                }
+            } else {
+                console.error("[Window Script]: Export function not available");
+            }
+        });
+    }
+
+    // Add event listener for import button
+    if (importPromptsButton) {
+        importPromptsButton.addEventListener("click", async () => {
+            console.log("[Window Script]: Import button clicked");
+
+            if (window.exportImport && typeof window.exportImport.importSavedPrompts === 'function') {
+                // Disable button and change text while importing
+                importPromptsButton.disabled = true;
+                const originalText = importPromptsButton.textContent;
+                importPromptsButton.textContent = "Importing...";
+
+                try {
+                    // Call the import function
+                    const result = await window.exportImport.importSavedPrompts();
+                    console.log("[Window Script]: Import result:", result);
+
+                    if (result.success) {
+                        // Show success message with counts
+                        importPromptsButton.textContent = `Imported ${result.imported}/${result.total} ✓`;
+
+                        // If in saved prompts panel, refresh the display
+                        if (currentPanel === "saved") {
+                            await setSavedPromptsPanel();
+                        }
+                    } else if (result.userCancelled) {
+                        // User cancelled the file selection, restore button immediately
+                        console.log("[Window Script]: User cancelled file selection");
+                        importPromptsButton.textContent = originalText;
+                        importPromptsButton.disabled = false;
+                        return; // Exit early to skip the timeout
+                    } else {
+                        // Show error message
+                        importPromptsButton.textContent = `Error: ${result.error}`;
+                        console.error("[Window Script]: Import error:", result.error);
+                    }
+                } catch (error) {
+                    // Handle unexpected errors
+                    console.error("[Window Script]: Import failed:", error);
+                    importPromptsButton.textContent = "Import Failed";
+                }
+
+                // Re-enable button and restore text after delay
+                setTimeout(() => {
+                    importPromptsButton.disabled = false;
+                    importPromptsButton.textContent = originalText;
+                }, 3000);
+            } else {
+                console.error("[Window Script]: Import function not available");
+                alert("Import functionality not available");
+            }
+        });
+    }
+
     // SECTION - Tabs in DOMContentLoaded event
 
     // Load settings and initialize tab data
@@ -678,15 +755,6 @@ async function setSavedPromptsPanel() {
     // Clear only the saved prompts container's content
     savedPromptsContainer.innerHTML = "";
 
-    // Header is now static in HTML
-    // const header = document.createElement("h3");
-    // header.textContent = "Saved Prompts";
-    // rightPanel.appendChild(header);
-
-    // Create a HTML/CSS container for saved prompts - No, append directly to savedPromptsContainer
-    // const savedPromptsContainerElement = document.createElement("div");
-    // savedPromptsContainerElement.className = "saved-prompts-container"; // Class moved to HTML
-
     if (savedPrompts.length === 0) {
         const emptyMessage = document.createElement("div");
         emptyMessage.className = "empty-saved-prompts";
@@ -740,54 +808,17 @@ async function setSavedPromptsPanel() {
             savedPromptsContainer.appendChild(promptItem);
         });
     }
-
-    // Add the saved prompts container to the right panel - No
-    // rightPanel.appendChild(savedPromptsContainerElement);
 }
+
+// Expose the setSavedPromptsPanel function to window for use in the export-import module
+window.setSavedPromptsPanel = setSavedPromptsPanel;
 
 //NOTE - Function to set the settings panel
 async function setSettingsPanel() {
-    // if (currentPanel !== "settings") return;
+    // Target the existing checkbox in HTML
+    const areTabsRecentlyActivatedCheckbox = document.getElementById("recentlyUpdatedCheckbox");
 
-    // Target the specific container for settings content
-    const settingsContainer = document.getElementById("settingsContainer");
-    if (!settingsContainer) {
-        console.error("[Window Script]: Settings container not found!");
-        return;
-    }
-
-    // Clear only the settings container's content
-    settingsContainer.innerHTML = "";
-
-    // Header is now static in HTML
-    // const header = document.createElement("h3");
-    // header.textContent = "Settings";
-    // rightPanel.appendChild(header); // No longer appending to rightPanel
-
-    const settingItemContainer = document.createElement("div");
-    settingItemContainer.className = "setting-item-container"; // Use a more specific class if needed
-
-    // Create checkbox for setting "Display tabs in activation order, instead of creation order"
-    const areTabsRecentlyActivatedCheckbox = document.createElement("input");
-    areTabsRecentlyActivatedCheckbox.type = "checkbox";
-    areTabsRecentlyActivatedCheckbox.id = "recentlyUpdatedCheckbox"; // Add an ID for the label
-    areTabsRecentlyActivatedCheckbox.className =
-        "recently-activated-setting-checkbox";
-    // areTabsRecentlyActivatedCheckbox.style.marginLeft = "10px"; // Style using CSS class
-
-    const areTabsRecentlyActivatedCheckboxLabel =
-        document.createElement("label");
-    areTabsRecentlyActivatedCheckboxLabel.htmlFor = "recentlyUpdatedCheckbox"; // Use htmlFor
-    areTabsRecentlyActivatedCheckboxLabel.textContent =
-        " Display tabs in activation order, instead of creation order"; // Add space for clarity
-
-    settingItemContainer.appendChild(areTabsRecentlyActivatedCheckbox);
-    settingItemContainer.appendChild(areTabsRecentlyActivatedCheckboxLabel);
-
-    // Append the setting item container to the settings container
-    settingsContainer.appendChild(settingItemContainer);
-
-    // Save the setting to storage (event listener logic remains the same)
+    // Set up the event handler
     areTabsRecentlyActivatedCheckbox.addEventListener("change", async (e) => {
         const isEnabled = e.target.checked;
 

@@ -457,9 +457,29 @@ body {
     padding: 10px;
 }
 
+.setting-item-container {
+    margin-bottom: 20px;
+}
+
 .setting-item-container label {
     cursor: pointer;
     margin-left: 4px;
+}
+
+.data-management h4 {
+    margin-bottom: 10px;
+    margin-top: 20px;
+}
+
+.setting-button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.setting-button {
+    padding: 8px 12px;
+    width: 100%;
 }
 
 /* ANCHOR State styles */

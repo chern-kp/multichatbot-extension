@@ -50,10 +50,22 @@
         <h3>Settings</h3>
         <div id="settingsContainer" class="panel-content-area">
           <!-- Settings controls will be loaded here by JS -->
+          <div class="setting-item-container">
+            <input type="checkbox" id="recentlyUpdatedCheckbox" class="recently-activated-setting-checkbox">
+            <label for="recentlyUpdatedCheckbox">Display tabs in activation order, instead of creation order</label>
+          </div>
+          <div class="setting-item-container data-management">
+            <h4>Data Management</h4>
+            <div class="setting-button-group">
+              <button class="button setting-button" id="exportPromptsButton">Export Saved Prompts</button>
+              <button class="button setting-button" id="importPromptsButton">Import Saved Prompts</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+  <script src="export-import.js"></script>
   <script src="window.js"></script>
   <link rel="stylesheet" href="style/style.css">
 </body>

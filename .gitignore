@@ -1,2 +1,96 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+*.tmp
+
+# Version control system files
+.gitattributes
+.gitmodules
+.svn
+.hg
+.bzr
+
+# Compilation and build artifacts
+*.class
+*.exe
+*.bin
+*.o
+*.obj
+*.dll
+*.lib
+*.so
+*.a
+*.la
+*.pyc
+*.pyo
+*.manifest
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDE and editor files
+.vscode/
+.cursor/
+.idea/
+*.swp
+*.swo
+*.swn
+*.log
+*.tmp
+*.bak
+
+# Programming languages
+## Java
+target/
+out/
+
+## Python
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.egg
+
+## JavaScript/Node.js
+node_modules/
+npm-debug.log
+package-lock.json
+
+## PHP
+vendor/
+composer.lock
+
+## Ruby
+.ruby-gemset
+.rvm
+.bundle
+.env
+log/*.log
+tmp/**/*
+config/database.yml
+
+## Go
+vendor/
+*.go
+
+## C/C++
+*.dSYM
+*.cmake
+
+# Documentation system
+docs/_build/
+
+# Other files
+.env
+secrets.*
+config/*.local
+coverage/
+report/
+test-results/
+
+# Project specific
 /icons
-/.vscode

@@ -17,6 +17,8 @@ if (window.__contentScriptLoaded) {
         "perplexity.ai": handlePerplexity,
         "poe.com": handlePoe,
         "google.com": handleGoogle,
+        "grok.com": handleGrokCom,
+        "x.com/i/grok": handleGrokX,
     };
 
     //SECTION - Site-specific handlers
@@ -261,6 +263,74 @@ if (window.__contentScriptLoaded) {
 
         simulateEnter(input);
         return true;
+    }
+
+    // NOTE - Handler for Grok.com
+    function handleGrokCom(text) {
+        console.log("[content.js][GrokCom] Start handler");
+        // Fallback selectors for textarea
+        const textareaSelectors = [
+            'textarea[aria-label]',
+            'textarea[placeholder]',
+            'textarea',
+            '[aria-label*="Grok" i]',
+            '[placeholder*="Grok" i]',
+            '[aria-label]',
+            '[placeholder]'
+        ];
+        let input = null;
+        for (const selector of textareaSelectors) {
+            input = document.querySelector(selector);
+            if (input) break;
+        }
+        if (!input) {
+            console.log("[content.js][GrokCom] No textarea found");
+            return false;
+        }
+        input.value = text || "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        // Wait 400 ms for the button to activate
+        setTimeout(() => {
+            // Fallback selectors for send button
+            const buttonSelectors = [
+                'button[type="submit"]:not([disabled])',
+                'button[aria-label*="Send" i]:not([disabled])',
+                'button:not([disabled])'
+            ];
+            let sendButton = null;
+            for (const selector of buttonSelectors) {
+                sendButton = document.querySelector(selector);
+                if (sendButton) break;
+            }
+            if (!sendButton) {
+                console.log("[content.js][GrokCom] No send button found or button is disabled");
+                return false;
+            }
+            sendButton.click();
+            console.log("[content.js][GrokCom] Clicked send button");
+        }, 400);
+        return true;
+    }
+
+    // Utility: setNativeValue for React/Preact compatibility
+    function setNativeValue(element, value) {
+        const valueSetter = Object.getOwnPropertyDescriptor(element.__proto__, 'value')?.set;
+        const prototype = Object.getPrototypeOf(element);
+        const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+            prototypeValueSetter.call(element, value);
+        } else if (valueSetter) {
+            valueSetter.call(element, value);
+        } else {
+            element.value = value;
+        }
+    }
+
+    // NOTE - Handler for Grok on x.com/i/grok
+    function handleGrokX(text) {
+        //TODO - Implement Grok on x.com/i/grok
+        return false;
     }
 
     //!SECTION - Site-specific handlers

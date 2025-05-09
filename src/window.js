@@ -11,6 +11,8 @@ const SUPPORTED_SITES = [
     "huggingface.co/chat",
     "perplexity.ai",
     "poe.com",
+    "grok.com",
+    "x.com/i/grok",
 ];
 
 //NOTE - Detailed information about supported sites
@@ -22,7 +24,9 @@ const SUPPORTED_SITES_LINKS = {
     "DeepSeek Chat": "https://chat.deepseek.com",
     "Hugging Face Chat": "https://huggingface.co/chat",
     "Perplexity AI": "https://perplexity.ai",
-    "Poe": "https://poe.com"
+    "Poe": "https://poe.com",
+    "Grok": "https://grok.com",
+    "Grok via X (Twitter)": "https://x.com/i/grok"
 };
 
 // Storage for latest tab activation times

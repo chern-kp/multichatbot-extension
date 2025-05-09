@@ -13,7 +13,9 @@
         "https://chat.deepseek.com/*",
         "https://huggingface.co/chat/*",
         "https://perplexity.ai/*",
-        "https://poe.com/*"
+        "https://poe.com/*",
+        "https://grok.com/*",
+        "https://x.com/i/grok*"
     ],
     "content_scripts": [
         {
@@ -26,7 +28,9 @@
                 "https://chat.deepseek.com/*",
                 "https://huggingface.co/chat/*",
                 "https://perplexity.ai/*",
-                "https://poe.com/*"
+                "https://poe.com/*",
+                "https://grok.com/*",
+                "https://x.com/i/grok*"
             ],
             "js": ["src/content.js"],
             "run_at": "document_idle"

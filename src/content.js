@@ -7,6 +7,27 @@ if (window.__contentScriptLoaded) {
     window.__contentScriptLoaded = true;
     console.log("[content.js] Script loaded and running!");
 
+    //SECTION - Utility functions for handlers
+    //NOTE - Function to find the first matching text field element from a list of selectors
+    function findTextFieldElement(selectors) {
+        // Add logging for debugging
+        console.log("[content.js] Attempting to find text field with selectors:", selectors);
+
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+                // Log which selector worked
+                console.log(`[content.js] Text field found with selector: "${selector}"`, element);
+                return element; // Return the first found element
+            }
+        }
+
+        // Log if the field is not found
+        console.log("[content.js] Text field not found with any of the selectors.");
+        return null; // Return null if nothing is found
+    }
+    //!SECTION - Utility functions for handlers
+
     const siteHandlers = {
         "gemini.google.com": handleGemini,
         "chatgpt.com": handleChatGPT,
@@ -24,8 +45,15 @@ if (window.__contentScriptLoaded) {
     //SECTION - Site-specific handlers
     //NOTE - Handler for Google.com
     function handleGoogle(text) {
-        const input = document.querySelector('textarea[name="q"]');
-        if (!input) return false;
+        const textFieldSelectors = [
+            'textarea[name="q"]'
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleGoogle] Text field not found.");
+            return false;
+        }
 
         input.value = text || "";
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -38,10 +66,15 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for ChatGPT.com
     function handleChatGPT(text) {
-        const input = document.querySelector(
+        const textFieldSelectors = [
             'div#prompt-textarea[contenteditable="true"]'
-        );
-        if (!input) return false;
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleChatGPT] Text field not found.");
+            return false;
+        }
 
         input.innerHTML = ""; // Clear existing content
         const p = document.createElement("p");
@@ -56,19 +89,18 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for Claude.ai
     function handleClaude(text) {
-        // Try multiple ways to find the input element
-        const possibleInputs = [
-            document.querySelector('div[contenteditable="true"].ProseMirror'),
-            document.querySelector('div.ProseMirror[contenteditable="true"]'),
-            document.querySelector(
-                'div[aria-label="Write your prompt to Claude"][contenteditable="true"]'
-            ),
-            document.querySelector('div[contenteditable="true"]'), // Generic fallback
-        ].filter(Boolean);
+        const textFieldSelectors = [
+            'div[contenteditable="true"].ProseMirror',
+            'div.ProseMirror[contenteditable="true"]',
+            'div[aria-label="Write your prompt to Claude"][contenteditable="true"]',
+            'div[contenteditable="true"]',
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
 
-        if (possibleInputs.length === 0) return false;
-
-        const input = possibleInputs[0];
+        if (!input) {
+            console.error("[content.js][handleClaude] Text field not found.");
+            return false;
+        }
 
         if (window.location.href.includes("claude.ai")) {
             // Claude needs a small delay for reliable input
@@ -118,10 +150,15 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for Abacus.ai (apps.abacus.ai, chatllm)
     function handleAbacusChat(text) {
-        const input = document.querySelector(
+        const textFieldSelectors = [
             'textarea[placeholder="Write something..."]'
-        );
-        if (!input) return false;
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleAbacusChat] Text field not found.");
+            return false;
+        }
 
         input.value = text || "";
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -142,8 +179,15 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for deepseek.com
     function handleDeepSeek(text) {
-        const input = document.querySelector("textarea#chat-input");
-        if (!input) return false;
+        const textFieldSelectors = [
+            "textarea#chat-input"
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleDeepSeek] Text field not found.");
+            return false;
+        }
 
         input.value = text || "";
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -170,10 +214,15 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for HuggingFace Chat
     function handleHuggingFace(text) {
-        const input = document.querySelector(
+        const textFieldSelectors = [
             'textarea[placeholder="Ask anything"]'
-        );
-        if (!input) return false;
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleHuggingFace] Text field not found.");
+            return false;
+        }
 
         input.value = text || "";
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -193,10 +242,15 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for Perplexity
     function handlePerplexity(text) {
-        const input = document.querySelector(
+        const textFieldSelectors = [
             'textarea[placeholder="Ask anything..."]'
-        );
-        if (!input) return false;
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handlePerplexity] Text field not found.");
+            return false;
+        }
 
         input.value = text || "";
         input.dispatchEvent(
@@ -224,10 +278,15 @@ if (window.__contentScriptLoaded) {
 
     //NOTE - Handler for Poe.com
     function handlePoe(text) {
-        const input = document.querySelector(
+        const textFieldSelectors = [
             'textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Message"]'
-        );
-        if (!input) return false;
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handlePoe] Text field not found.");
+            return false;
+        }
 
         input.value = text || "";
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -247,15 +306,18 @@ if (window.__contentScriptLoaded) {
 
     // NOTE - Handler for Gemini (gemini.google.com)
     function handleGemini(text) {
-        const possibleInputs = [
-            document.querySelector(".ql-editor"),
-            document.querySelector('[contenteditable="true"]'),
-            document.querySelector('[role="textbox"]'),
-        ].filter(Boolean);
+        const textFieldSelectors = [
+            ".ql-editor",
+            '[contenteditable="true"]',
+            '[role="textbox"]',
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
 
-        if (possibleInputs.length === 0) return false;
+        if (!input) {
+            console.error("[content.js][handleGemini] Text field not found.");
+            return false;
+        }
 
-        const input = possibleInputs[0];
         input.innerHTML = `<p>${text}</p>`;
 
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -268,8 +330,7 @@ if (window.__contentScriptLoaded) {
     // NOTE - Handler for Grok.com
     function handleGrokCom(text) {
         console.log("[content.js][GrokCom] Start handler");
-        // Fallback selectors for textarea
-        const textareaSelectors = [
+        const textFieldSelectors = [
             'textarea[aria-label]',
             'textarea[placeholder]',
             'textarea',
@@ -278,13 +339,10 @@ if (window.__contentScriptLoaded) {
             '[aria-label]',
             '[placeholder]'
         ];
-        let input = null;
-        for (const selector of textareaSelectors) {
-            input = document.querySelector(selector);
-            if (input) break;
-        }
+        const input = findTextFieldElement(textFieldSelectors);
+
         if (!input) {
-            console.log("[content.js][GrokCom] No textarea found");
+            console.error("[content.js][GrokCom] Text field not found.");
             return false;
         }
         input.value = text || "";

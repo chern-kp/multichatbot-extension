@@ -482,11 +482,11 @@ async function setTabsList() {
 
     // Create tab items
     sortedTabs.forEach((tab) => {
-        console.log(
+        /* console.log(
             "[Window Script]: Creating tab item for:",
             tab.id,
             tab.title
-        );
+        ); */ //NOTE - Commented out to avoid spamming the console
 
         const tabItem = document.createElement("div");
         tabItem.className = "tab-item";
@@ -549,8 +549,7 @@ async function sortTabs(tabs) {
         tabs.forEach((tab) => {
             const time = activationTimes[tab.id] || 0;
             tabTimeMap.set(tab.id, time);
-            // Keep detailed log for potential future debugging, can be removed later
-            console.log(`[Window Script]: Tab ${tab.id} mapped time:`, new Date(time).toISOString());
+            // console.log(`[Window Script]: Tab ${tab.id} mapped time:`, new Date(time).toISOString()); //NOTE - Commented out to avoid spamming the console
         });
 
         return [...tabs].sort((a, b) => {

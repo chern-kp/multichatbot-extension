@@ -6,7 +6,7 @@
     "permissions": ["activeTab", "storage", "scripting", "tabs", "windows"],
     "host_permissions": [
         "https://gemini.google.com/*",
-        "https://google.com/*",
+        "https://*.google.com/*",
         "https://chatgpt.com/*",
         "https://claude.ai/*",
         "https://apps.abacus.ai/*",

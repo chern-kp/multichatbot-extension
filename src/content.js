@@ -26,6 +26,71 @@ if (window.__contentScriptLoaded) {
         console.log("[content.js] Text field not found with any of the selectors.");
         return null; // Return null if nothing is found
     }
+
+    //NOTE - Function to set the value of a text field and dispatch events
+    function setTextFieldValue(element, text) {
+        const preparedText = text || "";
+        let success = false;
+
+        console.log(`[content.js] Attempting to set text for element:`, element, `with text: "${preparedText}"`);
+
+        if (element.nodeName === 'TEXTAREA') {
+            try {
+                // Attempt to use the native setter for better compatibility with frameworks like React
+                const nativeTextareaSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                nativeTextareaSetter.call(element, preparedText);
+                console.log("[content.js] Set text using HTMLTextAreaElement.prototype.value setter.");
+                success = true;
+            } catch (e) {
+                console.warn("[content.js] Failed to use native textarea setter, falling back to direct assignment.", e);
+                // Fallback to direct assignment
+                element.value = preparedText;
+                success = true; // Assume success with direct assignment
+            }
+        } else if (element.nodeName === 'INPUT') {
+            try {
+                // Attempt to use the native setter for better compatibility with frameworks like React
+                const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                nativeInputSetter.call(element, preparedText);
+                console.log("[content.js] Set text using HTMLInputElement.prototype.value setter.");
+                success = true;
+            } catch (e) {
+                console.warn("[content.js] Failed to use native input setter, falling back to direct assignment.", e);
+                // Fallback to direct assignment
+                element.value = preparedText;
+                success = true; // Assume success with direct assignment
+            }
+        } else if (element.isContentEditable) {
+            element.innerHTML = ""; // Clear previous content
+            element.textContent = preparedText;
+            console.log("[content.js] Set text using element.textContent (for contenteditable).");
+            success = true;
+        } else {
+            // Fallback for other types of elements, though less common for text fields
+            try {
+                element.textContent = preparedText;
+                console.log("[content.js] Set text using element.textContent (fallback).");
+                success = true;
+            } catch (e) {
+                console.error("[content.js] Failed to set text for element. Unknown element type or read-only.", element, e);
+                success = false; // Explicitly set success to false on error
+            }
+        }
+
+        // Dispatch events if text was set successfully
+        if (success) {
+            try {
+                element.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+                element.dispatchEvent(new Event("change", { bubbles: true }));
+                console.log("[content.js] Dispatched 'input' (cancelable) and 'change' events.");
+            } catch (e) {
+                console.error("[content.js] Error dispatching events:", e);
+                // Event dispatching failure doesn't negate successful text setting
+            }
+        }
+        return success;
+    }
+
     //!SECTION - Utility functions for handlers
 
     const siteHandlers = {
@@ -55,9 +120,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.value = text || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleGoogle] Failed to set text value.");
+            return false;
+        }
 
         const form = input.closest("form");
         if (form) form.submit();
@@ -76,13 +142,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.innerHTML = ""; // Clear existing content
-        const p = document.createElement("p");
-        p.textContent = text || "";
-        input.appendChild(p);
-
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleChatGPT] Failed to set text value.");
+            return false;
+        }
 
         return clickSendButton('button[data-testid="send-button"]');
     }
@@ -106,13 +169,11 @@ if (window.__contentScriptLoaded) {
             // Claude needs a small delay for reliable input
             return new Promise((resolve) => {
                 setTimeout(async () => {
-                    input.innerHTML = ""; // Clear existing content
-                    const p = document.createElement("p");
-                    p.textContent = text || "";
-                    input.appendChild(p);
-
-                    input.dispatchEvent(new Event("input", { bubbles: true }));
-                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                    if (!setTextFieldValue(input, text)) {
+                        console.error("[content.js][handleClaude] Failed to set text value during promise.");
+                        resolve(false);
+                        return;
+                    }
 
                     // Try to click the send button first
                     const sendButtonSelectors = [
@@ -160,9 +221,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.value = text || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleAbacusChat] Failed to set text value.");
+            return false;
+        }
 
         return clickSendButton("button svg.fa-paper-plane")
             .then((button) => {
@@ -189,9 +251,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.value = text || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleDeepSeek] Failed to set text value.");
+            return false;
+        }
 
         // Search for the send button by its SVG icon
         const sendButton = Array.from(
@@ -224,9 +287,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.value = text || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleHuggingFace] Failed to set text value.");
+            return false;
+        }
 
         const sendButton = document.querySelector(
             'button[aria-label="Send message"]'
@@ -243,7 +307,9 @@ if (window.__contentScriptLoaded) {
     //NOTE - Handler for Perplexity
     function handlePerplexity(text) {
         const textFieldSelectors = [
-            'textarea[placeholder="Ask anything..."]'
+            'textarea#ask-input',
+            'textarea[placeholder="Ask anything…"]',
+            'textarea[placeholder*="Ask anything"]'
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
@@ -252,11 +318,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.value = text || "";
-        input.dispatchEvent(
-            new Event("input", { bubbles: true, cancelable: true })
-        );
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handlePerplexity] Failed to set text value.");
+            return false;
+        }
 
         // Wait for the button to become enabled
         return new Promise((resolve) => {
@@ -279,7 +344,11 @@ if (window.__contentScriptLoaded) {
     //NOTE - Handler for Poe.com
     function handlePoe(text) {
         const textFieldSelectors = [
-            'textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Message"]'
+            'textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Start a new chat"]',
+            'textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Message"]',
+            'textarea.GrowingTextArea_textArea__ZWQbP',
+            'textarea[placeholder="Start a new chat"]',
+            'textarea[placeholder="Message"]'
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
@@ -288,9 +357,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.value = text || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handlePoe] Failed to set text value.");
+            return false;
+        }
 
         const sendButton = document.querySelector(
             'button[data-button-send="true"][aria-label="Send message"]'
@@ -318,10 +388,10 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        input.innerHTML = `<p>${text}</p>`;
-
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleGemini] Failed to set text value.");
+            return false;
+        }
 
         simulateEnter(input);
         return true;
@@ -345,9 +415,10 @@ if (window.__contentScriptLoaded) {
             console.error("[content.js][GrokCom] Text field not found.");
             return false;
         }
-        input.value = text || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][GrokCom] Failed to set text value.");
+            return false;
+        }
         // Wait 400 ms for the button to activate
         setTimeout(() => {
             // Fallback selectors for send button
@@ -369,20 +440,6 @@ if (window.__contentScriptLoaded) {
             console.log("[content.js][GrokCom] Clicked send button");
         }, 400);
         return true;
-    }
-
-    // Utility: setNativeValue for React/Preact compatibility
-    function setNativeValue(element, value) {
-        const valueSetter = Object.getOwnPropertyDescriptor(element.__proto__, 'value')?.set;
-        const prototype = Object.getPrototypeOf(element);
-        const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-        if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
-            prototypeValueSetter.call(element, value);
-        } else if (valueSetter) {
-            valueSetter.call(element, value);
-        } else {
-            element.value = value;
-        }
     }
 
     // NOTE - Handler for Grok on x.com/i/grok

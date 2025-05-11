@@ -7,6 +7,21 @@ if (window.__contentScriptLoaded) {
     window.__contentScriptLoaded = true;
     console.log("[content.js] Script loaded and running!");
 
+
+    const siteHandlers = {
+        "gemini.google.com": handleGemini,
+        "chatgpt.com": handleChatGPT,
+        "claude.ai": handleClaude,
+        "apps.abacus.ai/chatllm": handleAbacusChat,
+        "chat.deepseek.com": handleDeepSeek,
+        "huggingface.co/chat": handleHuggingFace,
+        "perplexity.ai": handlePerplexity,
+        "poe.com": handlePoe,
+        "google.com": handleGoogle,
+        "grok.com": handleGrokCom,
+        "x.com/i/grok": handleGrokX,
+    };
+
     //SECTION - Utility functions for handlers
     //NOTE - Step 1. Function to find the first matching text field element from a list of selectors
     function findTextFieldElement(selectors) {
@@ -130,23 +145,35 @@ if (window.__contentScriptLoaded) {
     }
 
     //NOTE - Step 3. Function to find the first matching send button element from a list of selectors
-    function findSendButtonElement(selectors) {
+    function findSendButtonElement(selectors, container = null) {
         console.log(
             "[content.js] Attempting to find send button with selectors:",
-            selectors
+            selectors,
+            "within container:",
+            container
         );
+
+        // Determine the search context (either the provided container or the whole document)
+        const searchContext =
+            container instanceof HTMLElement ? container : document;
+
         for (const selector of selectors) {
-            const element = document.querySelector(selector);
+            // Use the determined searchContext for querySelector
+            const element = searchContext.querySelector(selector);
             if (element) {
                 console.log(
-                    `[content.js] Send button found with selector: "${selector}"`,
+                    `[content.js] Send button found with selector: "${selector}" in`,
+                    searchContext === document
+                        ? "document"
+                        : "provided container",
                     element
                 );
                 return element;
             }
         }
         console.log(
-            "[content.js] Send button not found with any of the selectors."
+            "[content.js] Send button not found with any of the selectors in",
+            searchContext === document ? "document" : "provided container"
         );
         return null;
     }
@@ -157,26 +184,39 @@ if (window.__contentScriptLoaded) {
         buttonSelectors,
         useEnterFallback = true,
         maxAttempts = 5,
-        attemptDelay = 200
+        attemptDelay = 200,
+        searchContainer = null
     ) {
         let sendButton = null;
         let attempt = 0;
 
-        // 1. Attempt to find the send button
+        // 1. Attempt to find the active send button
         while (attempt < maxAttempts) {
-            sendButton = findSendButtonElement(buttonSelectors);
-            if (sendButton) {
+            const foundElement = findSendButtonElement(
+                buttonSelectors,
+                searchContainer
+            );
+
+            // Check if the found element is an active button
+            if (
+                foundElement &&
+                foundElement.tagName.toLowerCase() === "button" &&
+                !foundElement.disabled
+            ) {
+                sendButton = foundElement; // Found an active button
                 console.log(
-                    `[content.js] Send button found after ${
+                    `[content.js][attemptSubmit] Active send button found after ${
                         attempt + 1
-                    } attempts.`
+                    } attempts.`,
+                    sendButton
                 );
-                break; // Button found, exit loop
+                break; // Button found and active, exit loop
             }
+
             console.log(
-                `[content.js] Attempt ${
+                `[content.js][attemptSubmit] Attempt ${
                     attempt + 1
-                } to find send button failed. Retrying in ${attemptDelay}ms.`
+                } to find active send button failed. Retrying in ${attemptDelay}ms.`
             );
             await new Promise((resolve) => setTimeout(resolve, attemptDelay));
             attempt++;
@@ -186,31 +226,35 @@ if (window.__contentScriptLoaded) {
         if (sendButton) {
             const clicked = await clickSendButton(sendButton);
             if (clicked) {
-                console.log(`[content.js] Message sent by clicking button.`);
-                return true; // Successful attempt via button
+                console.log(
+                    `[content.js][attemptSubmit] Message sent by clicking button.`
+                );
+                return true;
             } else {
-                console.log(`[content.js] Clicking button failed.`);
-                // Continue to try fallback
+                console.log(
+                    `[content.js][attemptSubmit] Clicking button failed.`
+                );
             }
         } else {
             console.log(
-                `[content.js] Send button not found after max attempts.`
+                `[content.js][attemptSubmit] Active send button not found after max attempts.`
             );
-            // Continue to try fallback
         }
 
-        // 3. If button not found or click failed, and fallback is enabled, try Enter
+        // 3. Fallback to Enter
         if (useEnterFallback) {
-            console.log("[content.js] Attempting to simulate Enter.");
+            console.log(
+                "[content.js][attemptSubmit] Attempting to simulate Enter."
+            );
             simulateEnter(textFieldElement);
-            console.log("[content.js] Simulated Enter.");
-            return true; // Successful attempt via Enter
+            console.log("[content.js][attemptSubmit] Simulated Enter.");
+            return true;
         }
 
         console.error(
-            "[content.js] Failed to send message: No button clicked and Enter fallback disabled or failed."
+            "[content.js][attemptSubmit] Failed to send message: No button clicked and Enter fallback disabled or failed."
         );
-        return false; // Failed to attempt submission
+        return false;
     }
 
     //SECTION - Utility functions
@@ -288,20 +332,6 @@ if (window.__contentScriptLoaded) {
     //!SECTION - Utility functions
 
     //!SECTION - Utility functions for handlers
-
-    const siteHandlers = {
-        "gemini.google.com": handleGemini,
-        "chatgpt.com": handleChatGPT,
-        "claude.ai": handleClaude,
-        "apps.abacus.ai/chatllm": handleAbacusChat,
-        "chat.deepseek.com": handleDeepSeek,
-        "huggingface.co/chat": handleHuggingFace,
-        "perplexity.ai": handlePerplexity,
-        "poe.com": handlePoe,
-        "google.com": handleGoogle,
-        "grok.com": handleGrokCom,
-        "x.com/i/grok": handleGrokX,
-    };
 
     //SECTION - Site-specific handlers
     //NOTE - Handler for Google.com
@@ -403,9 +433,7 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        const sendButtonSelectors = [
-            'button svg.fa-paper-plane',
-        ];
+        const sendButtonSelectors = ["button svg.fa-paper-plane"];
 
         return await attemptSubmit(input, sendButtonSelectors, true);
     }
@@ -578,9 +606,40 @@ if (window.__contentScriptLoaded) {
     }
 
     // NOTE - Handler for Grok on x.com/i/grok
-    function handleGrokX(text) {
-        //TODO - Implement Grok on x.com/i/grok
-        return false;
+    async function handleGrokX(text) {
+        console.log("[content.js][handleGrokX] Start handler for x.com/i/grok");
+
+        const textFieldSelectors = ["textarea"]; // Most general, hoping it's the correct one
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleGrokX] Text field not found.");
+            return false;
+        }
+
+        if (!setTextFieldValue(input, text)) {
+            console.error(
+                "[content.js][handleGrokX] Failed to set text value."
+            );
+            return false;
+        }
+
+        const svgPathForButton =
+            "M12 3.59l7.457 7.45-1.414 1.42L13 7.41V21h-2V7.41l-5.043 5.05-1.414-1.42L12 3.59z";
+        const uniqueClassForSendButton = "r-icoktb";
+
+        // Selectors for the send button, prioritizing the one with the potential unique class
+        const sendButtonSelectors = [
+            // Use :has() to directly select the active button containing the SVG path AND the unique class
+            `button[class*="${uniqueClassForSendButton}"]:not([disabled]):has(svg path[d="${svgPathForButton}"])`,
+            // Fallback: Use :has() to select any active button containing the SVG path (less specific)
+            `button:not([disabled]):has(svg path[d="${svgPathForButton}"])`,
+        ];
+
+        console.log(
+            "[content.js][handleGrokX] Performing global search for send button."
+        );
+        return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
     //!SECTION - Site-specific handlers
@@ -603,15 +662,6 @@ if (window.__contentScriptLoaded) {
 
         const currentURL = window.location.href;
         console.log("[content.js] Current URL:", currentURL);
-
-        // Debug each handler match attempt
-        for (const [domain, handler] of Object.entries(siteHandlers)) {
-            console.log(
-                `[content.js] Checking if ${currentURL} includes ${domain}: ${currentURL.includes(
-                    domain
-                )}`
-            );
-        }
 
         const handlerEntry = Object.entries(siteHandlers).find(([domain]) =>
             currentURL.includes(domain)

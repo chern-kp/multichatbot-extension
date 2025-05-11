@@ -8,54 +8,82 @@ if (window.__contentScriptLoaded) {
     console.log("[content.js] Script loaded and running!");
 
     //SECTION - Utility functions for handlers
-    //NOTE - Function to find the first matching text field element from a list of selectors
+    //NOTE - Step 1. Function to find the first matching text field element from a list of selectors
     function findTextFieldElement(selectors) {
         // Add logging for debugging
-        console.log("[content.js] Attempting to find text field with selectors:", selectors);
+        console.log(
+            "[content.js] Attempting to find text field with selectors:",
+            selectors
+        );
 
         for (const selector of selectors) {
             const element = document.querySelector(selector);
             if (element) {
                 // Log which selector worked
-                console.log(`[content.js] Text field found with selector: "${selector}"`, element);
+                console.log(
+                    `[content.js] Text field found with selector: "${selector}"`,
+                    element
+                );
                 return element; // Return the first found element
             }
         }
 
         // Log if the field is not found
-        console.log("[content.js] Text field not found with any of the selectors.");
+        console.log(
+            "[content.js] Text field not found with any of the selectors."
+        );
         return null; // Return null if nothing is found
     }
 
-    //NOTE - Function to set the value of a text field and dispatch events
+    //NOTE - Step 2. Function to set the value of a text field and dispatch events
     function setTextFieldValue(element, text) {
         const preparedText = text || "";
         let success = false;
 
-        console.log(`[content.js] Attempting to set text for element:`, element, `with text: "${preparedText}"`);
+        console.log(
+            `[content.js] Attempting to set text for element:`,
+            element,
+            `with text: "${preparedText}"`
+        );
 
-        if (element.nodeName === 'TEXTAREA') {
+        if (element.nodeName === "TEXTAREA") {
             try {
                 // Attempt to use the native setter for better compatibility with frameworks like React
-                const nativeTextareaSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                const nativeTextareaSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLTextAreaElement.prototype,
+                    "value"
+                ).set;
                 nativeTextareaSetter.call(element, preparedText);
-                console.log("[content.js] Set text using HTMLTextAreaElement.prototype.value setter.");
+                console.log(
+                    "[content.js] Set text using HTMLTextAreaElement.prototype.value setter."
+                );
                 success = true;
             } catch (e) {
-                console.warn("[content.js] Failed to use native textarea setter, falling back to direct assignment.", e);
+                console.warn(
+                    "[content.js] Failed to use native textarea setter, falling back to direct assignment.",
+                    e
+                );
                 // Fallback to direct assignment
                 element.value = preparedText;
                 success = true; // Assume success with direct assignment
             }
-        } else if (element.nodeName === 'INPUT') {
+        } else if (element.nodeName === "INPUT") {
             try {
                 // Attempt to use the native setter for better compatibility with frameworks like React
-                const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                const nativeInputSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype,
+                    "value"
+                ).set;
                 nativeInputSetter.call(element, preparedText);
-                console.log("[content.js] Set text using HTMLInputElement.prototype.value setter.");
+                console.log(
+                    "[content.js] Set text using HTMLInputElement.prototype.value setter."
+                );
                 success = true;
             } catch (e) {
-                console.warn("[content.js] Failed to use native input setter, falling back to direct assignment.", e);
+                console.warn(
+                    "[content.js] Failed to use native input setter, falling back to direct assignment.",
+                    e
+                );
                 // Fallback to direct assignment
                 element.value = preparedText;
                 success = true; // Assume success with direct assignment
@@ -63,33 +91,201 @@ if (window.__contentScriptLoaded) {
         } else if (element.isContentEditable) {
             element.innerHTML = ""; // Clear previous content
             element.textContent = preparedText;
-            console.log("[content.js] Set text using element.textContent (for contenteditable).");
+            console.log(
+                "[content.js] Set text using element.textContent (for contenteditable)."
+            );
             success = true;
         } else {
-            // Fallback for other types of elements, though less common for text fields
             try {
                 element.textContent = preparedText;
-                console.log("[content.js] Set text using element.textContent (fallback).");
+                console.log(
+                    "[content.js] Set text using element.textContent (fallback)."
+                );
                 success = true;
             } catch (e) {
-                console.error("[content.js] Failed to set text for element. Unknown element type or read-only.", element, e);
-                success = false; // Explicitly set success to false on error
+                console.error(
+                    "[content.js] Failed to set text for element. Unknown element type or read-only.",
+                    element,
+                    e
+                );
+                success = false;
             }
         }
 
         // Dispatch events if text was set successfully
         if (success) {
             try {
-                element.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+                element.dispatchEvent(
+                    new Event("input", { bubbles: true, cancelable: true })
+                );
                 element.dispatchEvent(new Event("change", { bubbles: true }));
-                console.log("[content.js] Dispatched 'input' (cancelable) and 'change' events.");
+                console.log(
+                    "[content.js] Dispatched 'input' (cancelable) and 'change' events."
+                );
             } catch (e) {
                 console.error("[content.js] Error dispatching events:", e);
-                // Event dispatching failure doesn't negate successful text setting
             }
         }
         return success;
     }
+
+    //NOTE - Step 3. Function to find the first matching send button element from a list of selectors
+    function findSendButtonElement(selectors) {
+        console.log(
+            "[content.js] Attempting to find send button with selectors:",
+            selectors
+        );
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+                console.log(
+                    `[content.js] Send button found with selector: "${selector}"`,
+                    element
+                );
+                return element;
+            }
+        }
+        console.log(
+            "[content.js] Send button not found with any of the selectors."
+        );
+        return null;
+    }
+
+    //NOTE - Step 4. Function to attempt message submission (using find and click/enter)
+    async function attemptSubmit(
+        textFieldElement,
+        buttonSelectors,
+        useEnterFallback = true,
+        maxAttempts = 5,
+        attemptDelay = 200
+    ) {
+        let sendButton = null;
+        let attempt = 0;
+
+        // 1. Attempt to find the send button
+        while (attempt < maxAttempts) {
+            sendButton = findSendButtonElement(buttonSelectors);
+            if (sendButton) {
+                console.log(
+                    `[content.js] Send button found after ${
+                        attempt + 1
+                    } attempts.`
+                );
+                break; // Button found, exit loop
+            }
+            console.log(
+                `[content.js] Attempt ${
+                    attempt + 1
+                } to find send button failed. Retrying in ${attemptDelay}ms.`
+            );
+            await new Promise((resolve) => setTimeout(resolve, attemptDelay));
+            attempt++;
+        }
+
+        // 2. Attempt to click the button if found
+        if (sendButton) {
+            const clicked = await clickSendButton(sendButton);
+            if (clicked) {
+                console.log(`[content.js] Message sent by clicking button.`);
+                return true; // Successful attempt via button
+            } else {
+                console.log(`[content.js] Clicking button failed.`);
+                // Continue to try fallback
+            }
+        } else {
+            console.log(
+                `[content.js] Send button not found after max attempts.`
+            );
+            // Continue to try fallback
+        }
+
+        // 3. If button not found or click failed, and fallback is enabled, try Enter
+        if (useEnterFallback) {
+            console.log("[content.js] Attempting to simulate Enter.");
+            simulateEnter(textFieldElement);
+            console.log("[content.js] Simulated Enter.");
+            return true; // Successful attempt via Enter
+        }
+
+        console.error(
+            "[content.js] Failed to send message: No button clicked and Enter fallback disabled or failed."
+        );
+        return false; // Failed to attempt submission
+    }
+
+    //SECTION - Utility functions
+    //NOTE - Function to simulate "Enter" key press
+    function simulateEnter(input) {
+        const enterEvent = new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+        });
+        input.dispatchEvent(enterEvent);
+    }
+
+    //NOTE - Function to click the send button
+    function clickSendButton(buttonElement, waitTime = 100) {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                console.log(
+                    `[content.js] Attempting to click button element:`,
+                    buttonElement
+                );
+
+                if (buttonElement && !buttonElement.disabled) {
+                    console.log(
+                        `[content.js] Button found, attempting to click`
+                    );
+                    // Try to check if the button is visible and clickable
+                    const rect = buttonElement.getBoundingClientRect();
+                    const isVisible = rect.width > 0 && rect.height > 0;
+
+                    if (!isVisible) {
+                        console.log(
+                            `[content.js] Button found but not visible`
+                        );
+                        resolve(false);
+                        return;
+                    }
+
+                    try {
+                        const clickEvent = new MouseEvent("click", {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window,
+                        });
+                        buttonElement.dispatchEvent(clickEvent);
+                        console.log(`[content.js] Button clicked successfully`);
+                        resolve(true);
+                    } catch (error) {
+                        console.error(
+                            `[content.js] Error clicking button:`,
+                            error
+                        );
+                        resolve(false);
+                    }
+                } else {
+                    if (!buttonElement) {
+                        console.log(
+                            `[content.js] No button element provided or found.`
+                        );
+                    } else if (buttonElement.disabled) {
+                        console.log(
+                            `[content.js] Button element found but is disabled`
+                        );
+                    }
+                    resolve(false);
+                }
+            }, waitTime);
+        });
+    }
+
+    //!SECTION - Utility functions
 
     //!SECTION - Utility functions for handlers
 
@@ -110,9 +306,7 @@ if (window.__contentScriptLoaded) {
     //SECTION - Site-specific handlers
     //NOTE - Handler for Google.com
     function handleGoogle(text) {
-        const textFieldSelectors = [
-            'textarea[name="q"]'
-        ];
+        const textFieldSelectors = ['textarea[name="q"]'];
         const input = findTextFieldElement(textFieldSelectors);
 
         if (!input) {
@@ -121,7 +315,9 @@ if (window.__contentScriptLoaded) {
         }
 
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handleGoogle] Failed to set text value.");
+            console.error(
+                "[content.js][handleGoogle] Failed to set text value."
+            );
             return false;
         }
 
@@ -131,9 +327,9 @@ if (window.__contentScriptLoaded) {
     }
 
     //NOTE - Handler for ChatGPT.com
-    function handleChatGPT(text) {
+    async function handleChatGPT(text) {
         const textFieldSelectors = [
-            'div#prompt-textarea[contenteditable="true"]'
+            'div#prompt-textarea[contenteditable="true"]',
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
@@ -143,15 +339,18 @@ if (window.__contentScriptLoaded) {
         }
 
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handleChatGPT] Failed to set text value.");
+            console.error(
+                "[content.js][handleChatGPT] Failed to set text value."
+            );
             return false;
         }
 
-        return clickSendButton('button[data-testid="send-button"]');
+        const chatGPTButtonSelectors = ['button[data-testid="send-button"]'];
+        return await attemptSubmit(input, chatGPTButtonSelectors, true);
     }
 
     //NOTE - Handler for Claude.ai
-    function handleClaude(text) {
+    async function handleClaude(text) {
         const textFieldSelectors = [
             'div[contenteditable="true"].ProseMirror',
             'div.ProseMirror[contenteditable="true"]',
@@ -165,85 +364,55 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        if (window.location.href.includes("claude.ai")) {
-            // Claude needs a small delay for reliable input
-            return new Promise((resolve) => {
-                setTimeout(async () => {
-                    if (!setTextFieldValue(input, text)) {
-                        console.error("[content.js][handleClaude] Failed to set text value during promise.");
-                        resolve(false);
-                        return;
-                    }
-
-                    // Try to click the send button first
-                    const sendButtonSelectors = [
-                        'button[aria-label="Send message"]',
-                        'button[aria-label="Send Message"]',
-                        'button[type="button"][aria-label="Send message"]',
-                        // Fallbacks if button can't be found by attributes
-                        'button.rounded-lg svg[viewBox="0 0 256 256"]', // Try finding by SVG shape
-                        "button.bg-accent-main-000", // Try by class
-                    ];
-
-                    // Try each button selector in order
-                    for (const selector of sendButtonSelectors) {
-                        const success = await clickSendButton(selector);
-                        if (success) {
-                            console.log(
-                                `[content.js] Claude message sent using selector: ${selector}`
-                            );
-                            resolve(true);
-                            return;
-                        }
-                    }
-
-                    // If no button could be found or clicked, try Enter key
-                    console.log(
-                        "[content.js] Claude message send button not found, trying Enter key"
-                    );
-                    simulateEnter(input);
-                    resolve(true);
-                }, 2000);
-            });
+        if (!setTextFieldValue(input, text)) {
+            console.error(
+                "[content.js][handleClaude] Failed to set text value."
+            );
+            return false;
         }
-        return false;
+
+        const sendButtonSelectors = [
+            'button[aria-label="Send message"]',
+            'button[aria-label="Send Message"]',
+            'button[type="button"][aria-label="Send message"]',
+            'button.rounded-lg svg[viewBox="0 0 256 256"]',
+            "button.bg-accent-main-000",
+        ];
+
+        return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
     //NOTE - Handler for Abacus.ai (apps.abacus.ai, chatllm)
-    function handleAbacusChat(text) {
+    async function handleAbacusChat(text) {
         const textFieldSelectors = [
-            'textarea[placeholder="Write something..."]'
+            'textarea[placeholder="Write something..."]',
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
         if (!input) {
-            console.error("[content.js][handleAbacusChat] Text field not found.");
+            console.error(
+                "[content.js][handleAbacusChat] Text field not found."
+            );
             return false;
         }
 
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handleAbacusChat] Failed to set text value.");
+            console.error(
+                "[content.js][handleAbacusChat] Failed to set text value."
+            );
             return false;
         }
 
-        return clickSendButton("button svg.fa-paper-plane")
-            .then((button) => {
-                if (!button) {
-                    simulateEnter(input);
-                }
-                return true;
-            })
-            .catch((error) => {
-                console.error("Error during Abacus submission:", error);
-                return false;
-            });
+        const sendButtonSelectors = [
+            'button svg.fa-paper-plane',
+        ];
+
+        return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
     //NOTE - Handler for deepseek.com
-    function handleDeepSeek(text) {
-        const textFieldSelectors = [
-            "textarea#chat-input"
-        ];
+    async function handleDeepSeek(text) {
+        const textFieldSelectors = ["textarea#chat-input"];
         const input = findTextFieldElement(textFieldSelectors);
 
         if (!input) {
@@ -252,103 +421,85 @@ if (window.__contentScriptLoaded) {
         }
 
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handleDeepSeek] Failed to set text value.");
+            console.error(
+                "[content.js][handleDeepSeek] Failed to set text value."
+            );
             return false;
         }
 
-        // Search for the send button by its SVG icon
-        const sendButton = Array.from(
-            document.querySelectorAll('div[role="button"]')
-        ).find((button) => {
-            const svg = button.querySelector("svg");
-            return svg && svg.getAttribute("viewBox") === "0 0 14 16";
-        });
+        const sendButtonSelectors = [
+            'div[role="button"][aria-label="Send"]',
+            'div[role="button"] svg[viewBox="0 0 14 16"]',
+            'button[type="submit"]',
+            'button[aria-label*="send" i]',
+        ];
 
-        if (
-            !sendButton ||
-            sendButton.getAttribute("aria-disabled") === "true"
-        ) {
-            return false;
-        }
-
-        sendButton.click();
-        return true;
+        return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
     //NOTE - Handler for HuggingFace Chat
-    function handleHuggingFace(text) {
-        const textFieldSelectors = [
-            'textarea[placeholder="Ask anything"]'
-        ];
+    async function handleHuggingFace(text) {
+        const textFieldSelectors = ['textarea[placeholder="Ask anything"]'];
         const input = findTextFieldElement(textFieldSelectors);
 
         if (!input) {
-            console.error("[content.js][handleHuggingFace] Text field not found.");
+            console.error(
+                "[content.js][handleHuggingFace] Text field not found."
+            );
             return false;
         }
 
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handleHuggingFace] Failed to set text value.");
+            console.error(
+                "[content.js][handleHuggingFace] Failed to set text value."
+            );
             return false;
         }
 
-        const sendButton = document.querySelector(
-            'button[aria-label="Send message"]'
-        );
-        if (!sendButton || sendButton.disabled) {
-            simulateEnter(input);
-            return true;
-        }
-
-        sendButton.click();
-        return true;
+        const huggingFaceButtonSelectors = [
+            'button[aria-label="Send message"]',
+        ];
+        return await attemptSubmit(input, huggingFaceButtonSelectors, true);
     }
 
     //NOTE - Handler for Perplexity
-    function handlePerplexity(text) {
+    async function handlePerplexity(text) {
         const textFieldSelectors = [
-            'textarea#ask-input',
+            "textarea#ask-input",
             'textarea[placeholder="Ask anything…"]',
-            'textarea[placeholder*="Ask anything"]'
+            'textarea[placeholder*="Ask anything"]',
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
         if (!input) {
-            console.error("[content.js][handlePerplexity] Text field not found.");
+            console.error(
+                "[content.js][handlePerplexity] Text field not found."
+            );
             return false;
         }
 
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handlePerplexity] Failed to set text value.");
+            console.error(
+                "[content.js][handlePerplexity] Failed to set text value."
+            );
             return false;
         }
 
-        // Wait for the button to become enabled
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const button = document.querySelector(
-                    'button[aria-label="Submit"]:not([disabled])'
-                );
+        const sendButtonSelectors = [
+            'button[aria-label="Submit"]:not([disabled])',
+        ];
 
-                if (button) {
-                    button.click();
-                    resolve(true);
-                } else {
-                    simulateEnter(input);
-                    resolve(true);
-                }
-            }, 300); // Delay before checking the button status
-        });
+        return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
     //NOTE - Handler for Poe.com
-    function handlePoe(text) {
+    async function handlePoe(text) {
         const textFieldSelectors = [
             'textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Start a new chat"]',
             'textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Message"]',
-            'textarea.GrowingTextArea_textArea__ZWQbP',
+            "textarea.GrowingTextArea_textArea__ZWQbP",
             'textarea[placeholder="Start a new chat"]',
-            'textarea[placeholder="Message"]'
+            'textarea[placeholder="Message"]',
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
@@ -362,20 +513,14 @@ if (window.__contentScriptLoaded) {
             return false;
         }
 
-        const sendButton = document.querySelector(
-            'button[data-button-send="true"][aria-label="Send message"]'
-        );
-        if (sendButton && !sendButton.disabled) {
-            sendButton.click();
-            return true;
-        }
-
-        simulateEnter(input);
-        return true;
+        const poeButtonSelectors = [
+            'button[data-button-send="true"][aria-label="Send message"]',
+        ];
+        return await attemptSubmit(input, poeButtonSelectors, true);
     }
 
     // NOTE - Handler for Gemini (gemini.google.com)
-    function handleGemini(text) {
+    async function handleGemini(text) {
         const textFieldSelectors = [
             ".ql-editor",
             '[contenteditable="true"]',
@@ -389,25 +534,28 @@ if (window.__contentScriptLoaded) {
         }
 
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handleGemini] Failed to set text value.");
+            console.error(
+                "[content.js][handleGemini] Failed to set text value."
+            );
             return false;
         }
 
-        simulateEnter(input);
-        return true;
+        // No reliable button selectors for Gemini currently, rely on Enter fallback
+        const geminiButtonSelectors = [];
+        return await attemptSubmit(input, geminiButtonSelectors, true);
     }
 
     // NOTE - Handler for Grok.com
-    function handleGrokCom(text) {
+    async function handleGrokCom(text) {
         console.log("[content.js][GrokCom] Start handler");
         const textFieldSelectors = [
-            'textarea[aria-label]',
-            'textarea[placeholder]',
-            'textarea',
+            "textarea[aria-label]",
+            "textarea[placeholder]",
+            "textarea",
             '[aria-label*="Grok" i]',
             '[placeholder*="Grok" i]',
-            '[aria-label]',
-            '[placeholder]'
+            "[aria-label]",
+            "[placeholder]",
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
@@ -419,27 +567,14 @@ if (window.__contentScriptLoaded) {
             console.error("[content.js][GrokCom] Failed to set text value.");
             return false;
         }
-        // Wait 400 ms for the button to activate
-        setTimeout(() => {
-            // Fallback selectors for send button
-            const buttonSelectors = [
-                'button[type="submit"]:not([disabled])',
-                'button[aria-label*="Send" i]:not([disabled])',
-                'button:not([disabled])'
-            ];
-            let sendButton = null;
-            for (const selector of buttonSelectors) {
-                sendButton = document.querySelector(selector);
-                if (sendButton) break;
-            }
-            if (!sendButton) {
-                console.log("[content.js][GrokCom] No send button found or button is disabled");
-                return false;
-            }
-            sendButton.click();
-            console.log("[content.js][GrokCom] Clicked send button");
-        }, 400);
-        return true;
+
+        const sendButtonSelectors = [
+            'button[type="submit"]:not([disabled])',
+            'button[aria-label*="Send" i]:not([disabled])',
+            "button:not([disabled])",
+        ];
+
+        return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
     // NOTE - Handler for Grok on x.com/i/grok
@@ -449,79 +584,6 @@ if (window.__contentScriptLoaded) {
     }
 
     //!SECTION - Site-specific handlers
-
-    //SECTION - Utility functions
-    //NOTE - Function to click the send button
-    function clickSendButton(buttonSelector, waitTime = 100) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                console.log(
-                    `[content.js] Attempting to find send button with selector: ${buttonSelector}`
-                );
-                const button = document.querySelector(buttonSelector);
-
-                if (button && !button.disabled) {
-                    console.log(
-                        `[content.js] Button found, attempting to click`
-                    );
-                    // Try to check if the button is visible and clickable
-                    const rect = button.getBoundingClientRect();
-                    const isVisible = rect.width > 0 && rect.height > 0;
-
-                    if (!isVisible) {
-                        console.log(
-                            `[content.js] Button found but not visible`
-                        );
-                        resolve(false);
-                        return;
-                    }
-
-                    try {
-                        const clickEvent = new MouseEvent("click", {
-                            bubbles: true,
-                            cancelable: true,
-                            view: window,
-                        });
-                        button.dispatchEvent(clickEvent);
-                        console.log(`[content.js] Button clicked successfully`);
-                        resolve(true);
-                    } catch (error) {
-                        console.error(
-                            `[content.js] Error clicking button:`,
-                            error
-                        );
-                        resolve(false);
-                    }
-                } else {
-                    if (!button) {
-                        console.log(
-                            `[content.js] No button found with selector: ${buttonSelector}`
-                        );
-                    } else if (button.disabled) {
-                        console.log(
-                            `[content.js] Button found but is disabled`
-                        );
-                    }
-                    resolve(false);
-                }
-            }, waitTime);
-        });
-    }
-
-    //NOTE - Function to simulate "Enter" key press
-    function simulateEnter(input) {
-        const enterEvent = new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-        });
-        input.dispatchEvent(enterEvent);
-    }
-    //!SECTION - Utility functions
 
     //NOTE - Listener that receives messages from the background script
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

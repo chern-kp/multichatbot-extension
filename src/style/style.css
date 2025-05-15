@@ -268,7 +268,7 @@ body {
 
 .tab-item {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     margin-bottom: 8px;
     width: 100%;
 }
@@ -276,6 +276,7 @@ body {
 .tab-checkbox {
     flex-shrink: 0;
     margin-right: 8px;
+    vertical-align: baseline;
 }
 
 .tab-title {
@@ -285,6 +286,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    vertical-align: baseline;
 }
 
 .tab-url {
@@ -293,6 +295,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    vertical-align: baseline;
 }
 
 .tab-item.supported {

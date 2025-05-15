@@ -512,7 +512,13 @@ async function setTabsList() {
         url.textContent = tab.url;
         url.title = tab.url;
 
+        const favicon = document.createElement("img");
+        favicon.className = "tab-favicon";
+        favicon.src = tab.favIconUrl || "icons/globe.svg";
+        favicon.alt = `${tab.title} icon`;
+
         tabItem.appendChild(checkbox);
+        tabItem.appendChild(favicon);
         tabItem.appendChild(title);
         tabItem.appendChild(url);
         tabsListElement.appendChild(tabItem);

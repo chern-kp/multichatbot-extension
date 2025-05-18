@@ -14,8 +14,7 @@
         "https://huggingface.co/chat/*",
         "https://perplexity.ai/*",
         "https://poe.com/*",
-        "https://grok.com/*",
-        "https://x.com/i/grok*"
+        "https://grok.com/*"
     ],
     "content_scripts": [
         {
@@ -29,8 +28,7 @@
                 "https://huggingface.co/chat/*",
                 "https://perplexity.ai/*",
                 "https://poe.com/*",
-                "https://grok.com/*",
-                "https://x.com/i/grok*"
+                "https://grok.com/*"
             ],
             "js": ["src/content.js"],
             "run_at": "document_idle"
@@ -42,6 +40,9 @@
             "48": "icons/icon48.png",
             "128": "icons/icon128.png"
         }
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://www.google.com https://www.gstatic.com data:;"
     },
     "background": {
         "service_worker": "src/background.js",

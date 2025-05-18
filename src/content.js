@@ -19,7 +19,6 @@ if (window.__contentScriptLoaded) {
         "poe.com": handlePoe,
         "google.com": handleGoogle,
         "grok.com": handleGrokCom,
-        "x.com/i/grok": handleGrokX,
     };
 
     //SECTION - Utility functions for handlers
@@ -602,43 +601,6 @@ if (window.__contentScriptLoaded) {
             "button:not([disabled])",
         ];
 
-        return await attemptSubmit(input, sendButtonSelectors, true);
-    }
-
-    // NOTE - Handler for Grok on x.com/i/grok
-    async function handleGrokX(text) {
-        console.log("[content.js][handleGrokX] Start handler for x.com/i/grok");
-
-        const textFieldSelectors = ["textarea"]; // Most general, hoping it's the correct one
-        const input = findTextFieldElement(textFieldSelectors);
-
-        if (!input) {
-            console.error("[content.js][handleGrokX] Text field not found.");
-            return false;
-        }
-
-        if (!setTextFieldValue(input, text)) {
-            console.error(
-                "[content.js][handleGrokX] Failed to set text value."
-            );
-            return false;
-        }
-
-        const svgPathForButton =
-            "M12 3.59l7.457 7.45-1.414 1.42L13 7.41V21h-2V7.41l-5.043 5.05-1.414-1.42L12 3.59z";
-        const uniqueClassForSendButton = "r-icoktb";
-
-        // Selectors for the send button, prioritizing the one with the potential unique class
-        const sendButtonSelectors = [
-            // Use :has() to directly select the active button containing the SVG path AND the unique class
-            `button[class*="${uniqueClassForSendButton}"]:not([disabled]):has(svg path[d="${svgPathForButton}"])`,
-            // Fallback: Use :has() to select any active button containing the SVG path (less specific)
-            `button:not([disabled]):has(svg path[d="${svgPathForButton}"])`,
-        ];
-
-        console.log(
-            "[content.js][handleGrokX] Performing global search for send button."
-        );
         return await attemptSubmit(input, sendButtonSelectors, true);
     }
 

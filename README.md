@@ -15,6 +15,7 @@ Supported sites (so far):
 - Perplexity (https://www.perplexity.ai)
 - Poe (https://poe.com/)
 - Gemini (https://gemini.google.com)
+- Google AI Studio (https://aistudio.google.com)
 - Grok (https://grok.com)
 
 ## Usage

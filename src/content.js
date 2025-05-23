@@ -10,6 +10,8 @@ if (window.__contentScriptLoaded) {
 
     const siteHandlers = {
         "gemini.google.com": handleGemini,
+        "aistudio.google.com": handleAistudio,
+        "google.com": handleGoogle,
         "chatgpt.com": handleChatGPT,
         "claude.ai": handleClaude,
         "apps.abacus.ai/chatllm": handleAbacusChat,
@@ -17,14 +19,12 @@ if (window.__contentScriptLoaded) {
         "huggingface.co/chat": handleHuggingFace,
         "perplexity.ai": handlePerplexity,
         "poe.com": handlePoe,
-        "google.com": handleGoogle,
         "grok.com": handleGrokCom,
     };
 
     //SECTION - Utility functions for handlers
     //NOTE - Step 1. Function to find the first matching text field element from a list of selectors
     function findTextFieldElement(selectors) {
-        // Add logging for debugging
         console.log(
             "[content.js] Attempting to find text field with selectors:",
             selectors
@@ -599,6 +599,32 @@ if (window.__contentScriptLoaded) {
             'button[type="submit"]:not([disabled])',
             'button[aria-label*="Send" i]:not([disabled])',
             "button:not([disabled])",
+        ];
+
+        return await attemptSubmit(input, sendButtonSelectors, true);
+    }
+
+    // NOTE - Handler for aistudio.google.com
+    async function handleAistudio(text) {
+        console.log("[content.js][handleAistudio] Start handler");
+        const textFieldSelectors = [
+            'textarea[aria-label="Type something or tab to choose an example prompt"]',
+            'textarea.textarea',
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleAistudio] Text field not found.");
+            return false;
+        }
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleAistudio] Failed to set text value.");
+            return false;
+        }
+
+        const sendButtonSelectors = [
+            'button[aria-label="Run"][type="submit"]',
+            'button.run-button[type="submit"]',
         ];
 
         return await attemptSubmit(input, sendButtonSelectors, true);

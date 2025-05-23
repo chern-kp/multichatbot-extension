@@ -3,6 +3,7 @@ console.log("[Window Script]: Window script loaded");
 //NOTE - List of supported sites
 const SUPPORTED_SITES = [
     "gemini.google.com",
+    "aistudio.google.com",
     "google.com",
     "chatgpt.com",
     "claude.ai",
@@ -12,12 +13,12 @@ const SUPPORTED_SITES = [
     "perplexity.ai",
     "poe.com",
     "grok.com",
-    "x.com/i/grok",
 ];
 
 //NOTE - Detailed information about supported sites
 const SUPPORTED_SITES_LINKS = {
     "Google Gemini": "https://gemini.google.com/app",
+    "Google AI Studio": "https://aistudio.google.com/prompts/new_chat",
     "ChatGPT": "https://chat.openai.com",
     "Claude AI": "https://claude.ai/chat",
     "Anthropic Claude (Abacus)": "https://apps.abacus.ai/chat",
@@ -26,7 +27,6 @@ const SUPPORTED_SITES_LINKS = {
     "Perplexity AI": "https://perplexity.ai",
     "Poe": "https://poe.com",
     "Grok": "https://grok.com",
-    "Grok via X (Twitter)": "https://x.com/i/grok"
 };
 
 // Storage for latest tab activation times
@@ -82,15 +82,10 @@ async function initializeTabData() {
             }
         }
 
-        // Assign a very old timestamp (0) for tabs that don't have activation times
-        // This ensures they appear at the end when sorting by most recent (desc)
+        // Assign a very old timestamp (0) for tabs that don't have activation times. This ensures they appear at the end when sorting by most recent (desc)
         tabs.forEach((tab) => {
             if (!(tab.id in tabActivationTimes)) { // Check if the key exists
-                console.log(
-                    "[Window Script]: Assigning default (old) activation time for tab",
-                    tab.id
-                );
-                tabActivationTimes[tab.id] = 0; // Assign 0 instead of Date.now()
+                tabActivationTimes[tab.id] = 0;
                 hasChanges = true;
             }
         });
@@ -514,8 +509,14 @@ async function setTabsList() {
 
         const favicon = document.createElement("img");
         favicon.className = "tab-favicon";
-        favicon.src = tab.favIconUrl || "icons/globe.svg";
+        favicon.src = tab.favIconUrl || chrome.runtime.getURL("icons/globe.svg");
         favicon.alt = `${tab.title} icon`;
+
+        // Error handling for favicon
+        favicon.onerror = () => {
+            console.log(`[Window Script]: Failed to load favicon for tab ${tab.id}. Using placeholder.`);
+            favicon.src = chrome.runtime.getURL("icons/globe.svg"); // Ensure placeholder is loaded correctly
+        };
 
         tabItem.appendChild(checkbox);
         tabItem.appendChild(favicon);
@@ -730,8 +731,8 @@ async function setSupportedSitesPanel() {
             favicon.height = 20;
             favicon.onerror = () => {
                 // If favicon fails to load, use a generic icon
-                favicon.src = "icons/globe.svg";
-                console.log(`[Window Script]: Failed to load favicon for ${domain}`);
+                favicon.src = chrome.runtime.getURL("icons/globe.svg");
+                console.log(`[Window Script]: Failed to load favicon for ${domain}. Using placeholder.`);
             };
 
             const siteText = document.createElement("a");

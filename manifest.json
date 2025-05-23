@@ -6,6 +6,7 @@
     "permissions": ["activeTab", "storage", "scripting", "tabs", "windows"],
     "host_permissions": [
         "https://gemini.google.com/*",
+        "https://aistudio.google.com/*",
         "https://*.google.com/*",
         "https://chatgpt.com/*",
         "https://claude.ai/*",
@@ -20,6 +21,7 @@
         {
             "matches": [
                 "https://gemini.google.com/*",
+                "https://aistudio.google.com/*",
                 "https://*.google.com/*",
                 "https://chatgpt.com/*",
                 "https://claude.ai/*",

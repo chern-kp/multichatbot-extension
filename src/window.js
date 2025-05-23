@@ -18,7 +18,7 @@ const SUPPORTED_SITES = [
 //NOTE - Detailed information about supported sites
 const SUPPORTED_SITES_LINKS = {
     "Google Gemini": "https://gemini.google.com/app",
-    "Google AI Studio": "https://aistudio.google.com/prompts/new_chat",
+    "Google AI Studio": "https://aistudio.google.com/",
     "ChatGPT": "https://chat.openai.com",
     "Claude AI": "https://claude.ai/chat",
     "Anthropic Claude (Abacus)": "https://apps.abacus.ai/chat",
@@ -617,6 +617,12 @@ async function processTab(tab) {
                     `[Window] Tab ${tab.id} failed processing:`,
                     response.error
                 );
+            } else {
+                console.log(
+                    "[Window Script]: Successfully processed tab:",
+                    tabId,
+                    tab.url
+                );
             }
         } catch (error) {
             console.error(
@@ -1006,7 +1012,17 @@ function formatDate(isoString) {
 
 //NOTE - Function to check if the URL is supported
 function isSupportedUrl(url) {
-    return SUPPORTED_SITES.some((site) => url.includes(site));
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname; // Get only the hostname, e.g., "mail.google.com" or "google.com"
+
+        // Check if the hostname is an exact match with any of the supported sites
+        return SUPPORTED_SITES.some(supportedSite => hostname === supportedSite);
+    } catch (e) {
+        // Handle invalid URLs
+        console.error("[Window Script]: Invalid URL:", url, e);
+        return false;
+    }
 }
 
 /**

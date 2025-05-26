@@ -529,7 +529,17 @@ async function setTabsList() {
         tabsListElement.appendChild(tabItem);
 
         if (isSupported) {
-            checkbox.addEventListener("change", async () => {
+            tabItem.addEventListener("click", async (event) => {
+                // Prevent the click event from propagating if the click was directly on the checkbox
+                // This avoids double-toggling if the user clicks the checkbox itself
+                if (event.target === checkbox) {
+                    return;
+                }
+
+                // Toggle the checkbox state
+                checkbox.checked = !checkbox.checked;
+
+                // Update storage based on the new checkbox state
                 const { selectedTabs = {} } = await chrome.storage.local.get(
                     "selectedTabs"
                 );

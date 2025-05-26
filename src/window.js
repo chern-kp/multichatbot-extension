@@ -518,10 +518,14 @@ async function setTabsList() {
             favicon.src = chrome.runtime.getURL("icons/globe.svg"); // Ensure placeholder is loaded correctly
         };
 
+        const tabInfo = document.createElement("div");
+        tabInfo.className = "tab-info";
+        tabInfo.appendChild(title);
+        tabInfo.appendChild(url);
+
         tabItem.appendChild(checkbox);
         tabItem.appendChild(favicon);
-        tabItem.appendChild(title);
-        tabItem.appendChild(url);
+        tabItem.appendChild(tabInfo);
         tabsListElement.appendChild(tabItem);
 
         if (isSupported) {

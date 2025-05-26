@@ -288,9 +288,13 @@ body {
 
 .tab-item {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     margin-bottom: 8px;
     width: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: var(--border-radius);
+    padding: 4px;
+    box-sizing: border-box;
 }
 
 .tab-checkbox {
@@ -320,6 +324,13 @@ body {
 
 .tab-item.supported {
     color: #000;
+}
+
+.tab-info {
+    display: flex;
+    align-items: baseline;
+    flex-grow: 1;
+    min-width: 0;
 }
 
 .input-text {
@@ -631,19 +642,6 @@ body {
 .sort-button.disabled:hover {
     background-color: #e9ecef;
     border-color: #ced4da;
-}
-
-#supportedSitesContainer {
-    padding: 10px 0;
-    overflow-y: auto;
-}
-
-.tab-favicon {
-    display: block;
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
-    flex-shrink: 0;
 }
 
 #supportedSitesContainer {

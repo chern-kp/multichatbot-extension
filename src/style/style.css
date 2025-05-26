@@ -620,6 +620,32 @@ body {
     text-decoration: underline;
 }
 
+.sort-button.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #e9ecef;
+    color: #6c757d;
+    border-color: #ced4da;
+}
+
+.sort-button.disabled:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+#supportedSitesContainer {
+    padding: 10px 0;
+    overflow-y: auto;
+}
+
+.tab-favicon {
+    display: block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
 #supportedSitesContainer {
     padding: 10px 0;
     overflow-y: auto;

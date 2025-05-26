@@ -634,10 +634,14 @@ async function processTab(tab) {
 
             // LINK - Send a message to the content script to focus and fill the input field
             console.debug(`[Window] Sending message to tab ${tab.id}`);
-            const response = await chrome.tabs.sendMessage(tab.id, {
-                action: "focusAndFill", //  We created action focusAndFill, which is recieved in content.js
-                text: text,
-            });
+            const response = await sendMessageWithTimeout(
+                tab.id,
+                {
+                    action: "focusAndFill", // We created action focusAndFill, which is recieved in content.js
+                    text: text,
+                },
+                5000
+            );
             console.log("[Window Script]: Response received:", response);
 
             if (!response?.success) {
@@ -1097,6 +1101,34 @@ function injectContentScript(tabId) {
                             reject(error);
                         });
                 }
+            });
+    });
+}
+
+/**
+ * Sends a message to a content script with a timeout.
+ * If the content script does not respond within the specified timeout,
+ * the promise will reject with a timeout error.
+ *
+ * @param {number} tabId - The ID of the tab to send the message to.
+ * @param {object} message - The message object to send.
+ * @param {number} timeoutMs - The timeout in milliseconds.
+ * @returns {Promise<any>} A promise that resolves with the response from the content script, or rejects on timeout or error.
+ */
+function sendMessageWithTimeout(tabId, message, timeoutMs) {
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            reject(new Error(`Message to tab ${tabId} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+
+        chrome.tabs.sendMessage(tabId, message)
+            .then(response => {
+                clearTimeout(timeout);
+                resolve(response);
+            })
+            .catch(error => {
+                clearTimeout(timeout);
+                reject(error);
             });
     });
 }

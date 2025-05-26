@@ -467,7 +467,21 @@ async function setTabsList() {
             cleanedSelectedTabs[id] = true;
         });
 
-    await chrome.storage.local.set({ selectedTabs: cleanedSelectedTabs });
+    // Get current checkbox states from DOM before clearing
+    const currentDomSelectedTabs = {};
+    const existingCheckboxes = tabsListElement.querySelectorAll('.tab-checkbox');
+    existingCheckboxes.forEach(checkbox => {
+        const tabId = Number(checkbox.dataset.tabId);
+        if (checkbox.checked) {
+            currentDomSelectedTabs[tabId] = true;
+        }
+    });
+
+    // Merge stored selectedTabs with current DOM selectedTabs
+    // DOM state takes precedence for currently displayed tabs
+    const mergedSelectedTabs = { ...cleanedSelectedTabs, ...currentDomSelectedTabs };
+
+    await chrome.storage.local.set({ selectedTabs: mergedSelectedTabs });
 
     // Clear the current list
     tabsListElement.innerHTML = "";
@@ -492,8 +506,8 @@ async function setTabsList() {
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.className = "tab-checkbox";
-        checkbox.checked =
-            isSupported && (cleanedSelectedTabs[tab.id] || false);
+        // Use the merged state for setting the checkbox's checked status
+        checkbox.checked = isSupported && (mergedSelectedTabs[tab.id] || false);
         checkbox.dataset.tabId = tab.id;
         checkbox.disabled = !isSupported;
 

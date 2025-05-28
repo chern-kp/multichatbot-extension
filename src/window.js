@@ -40,7 +40,6 @@ const MAX_HISTORY_ITEMS = 100;
 let sortDirection = "desc";
 
 // Variables for right panel
-let isRightPanelVisible = false; // Viability of the right panel
 let activeButton = null;
 let currentPanel = null;
 
@@ -126,6 +125,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     const inputText = document.getElementById("inputText");
     console.log("[Window Script]: Input text element:", inputText);
+
+    //LISTENER - listener for Ctrl/Cmd + Enter to send message
+    inputText.addEventListener("keydown", (event) => {
+        // Check if Enter is pressed and Ctrl (Windows/Linux) or Meta (Mac/Chromebook) key is also pressed
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault(); // Prevent default behavior (e.g., new line in textarea)
+            sendButton.click(); // Programmatically click the send button
+        }
+    });
 
     const savePromptButton = document.getElementById("savePromptButton");
     const sortButton = document.querySelector(".sort-button");
@@ -284,7 +292,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         sendButton.disabled = true;
         const originalButtonText = sendButton.textContent;
         sendButton.textContent = "Sending...";
-
+        sendButton.classList.add("sending");
         try {
             const text = document.getElementById("inputText").value.trim();
             if (!text) return;
@@ -355,6 +363,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Restore button state
             sendButton.disabled = false;
             sendButton.textContent = originalButtonText;
+            sendButton.classList.remove("sending");
         }
     });
 

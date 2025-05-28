@@ -5,12 +5,20 @@ let windowId = null;
 const MIN_WIDTH = 800;
 const MIN_HEIGHT = 680;
 
-// Activation of the service worker. We need it for handling background tasks and maintaining state.
+/**
+ * LISTENER - Activation of the service worker.
+ * This listener is necessary for handling background tasks and maintaining the extension's state.
+ */
 self.addEventListener('activate', () => {
   console.log('[Background] Service worker activated');
 });
 
-// Track tab activation to record last active tabs
+/**
+ * LISTENER - Tracks tab activation to record last active tabs.
+ * Updates the activation timestamp for the newly active tab in local storage.
+ * @param {object} activeInfo - Information about the tab that was activated.
+ * @param {number} activeInfo.tabId - The ID of the tab that became active.
+ */
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   console.log('[Background] Tab activated:', activeInfo.tabId);
 
@@ -26,7 +34,11 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   });
 });
 
-// Clean up data when tabs are removed
+/**
+ * LISTENER - Cleans up data when tabs are removed.
+ * Removes stored tab activation times for the closed tab from local storage.
+ * @param {number} tabId - The ID of the tab that was removed.
+ */
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   console.log('[Background] Tab removed:', tabId);
 
@@ -44,7 +56,12 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   }
 });
 
-// Listen for changes to the tracking setting
+/**
+ * LISTENER - Listens for changes to the tab tracking setting.
+ * Logs changes to the `areTabsRecentlyUpdated` setting in local storage.
+ * @param {object} changes - An object detailing the changes.
+ * @param {string} area - The storage area ("sync", "local", or "managed") the changes happened in.
+ */
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.areTabsRecentlyUpdated) {
     console.log('[Background] Tab tracking setting changed:',
@@ -53,8 +70,13 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-// Handling the click event on the extension icon
-//TODO - FIX
+/**
+ * LISTENER - Handles the click event on the extension icon.
+ * When the icon is clicked, it checks if the extension window already exists.
+ * If it does, the existing window is focused and its size is adjusted to minimums.
+ * If not, a new popup window is created with `src/window.html`.
+ * It also sets up listeners for window removal and bounds changes to manage the window state.
+ */
 chrome.action.onClicked.addListener(async () => {
   console.log('[Background] Extension icon clicked');
   try {
@@ -85,15 +107,24 @@ chrome.action.onClicked.addListener(async () => {
     // Save the new window ID
     windowId = window.id;
 
-    // If the window is closed - reset the windowId
+    /**
+     * LISTENER - Resets the stored windowId when the extension window is closed.
+     * @param {number} closedWindowId - The ID of the window that was closed.
+     */
     chrome.windows.onRemoved.addListener((closedWindowId) => {
       if (closedWindowId === windowId) {
         windowId = null;
       }
     });
 
-    // If the window size is changed - check and correct it if it is less than the minimum
-    //TODO - FIX
+    /**
+     * LISTENER - Checks and corrects the extension window size if it falls below minimums.
+     * This listener is triggered when the extension window's bounds change.
+     * @param {object} changedWindow - The window object with updated bounds.
+     * @param {number} changedWindow.id - The ID of the changed window.
+     * @param {number} changedWindow.width - The new width of the window.
+     * @param {number} changedWindow.height - The new height of the window.
+     */
     chrome.windows.onBoundsChanged.addListener((changedWindow) => {
       if (changedWindow.id === windowId) {
         // Check if the width or height is less than the minimum

@@ -47,7 +47,12 @@ let currentPanel = null;
 // Initialize the list of tabs
 let tabsListElement;
 
-// Helper function for initializing tab data
+/**
+ * FUNC - Helper function for initializing tab data.
+ * Retrieves and cleans up tab activation times from local storage.
+ * Ensures that only data for currently existing tabs is kept.
+ * @returns {Promise<object>} A promise that resolves with the updated tab activation times object.
+ */
 async function initializeTabData() {
     console.log("[Window Script]: Initializing tab data");
 
@@ -104,8 +109,12 @@ async function initializeTabData() {
     }
 }
 
-// NOTE - Event listener for the DOMContentLoaded event.
-// We use this event to ensure that the DOM is fully loaded before we start interacting with it.
+/**
+ * LISTENER - Event listener for the DOMContentLoaded event.
+ * Ensures that the DOM is fully loaded before interacting with it.
+ * Initializes UI elements, loads settings, sets up event listeners for buttons,
+ * and updates the tabs list.
+ */
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("[Window Script]: DOMContentLoaded event fired");
 
@@ -261,7 +270,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         await savePrompt(text);
     });
 
-    // NOTE - Send button functionality. When clicked, send the text to the selected tabs.
+    /**
+     * FUNC - Send button functionality. When clicked, send the text to the selected tabs.
+     * Handles the click event for the send button.
+     * Disables the button, saves the input text to history,
+     * processes selected tabs by activating them and sending the text,
+     * and finally restores the button state.
+     */
     sendButton.addEventListener("click", async () => {
         console.log("[Window Script]: Send button clicked");
 
@@ -367,7 +382,13 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 //SECTION - Tabs functions and event listeners
 
-//NOTE - Event listener for tab activation
+/**
+ * LISTENER - Event listener for tab activation.
+ * Updates the activation timestamp for the newly active tab in local storage
+ * and refreshes the displayed tabs list.
+ * @param {object} activeInfo - Information about the tab that was activated.
+ * @param {number} activeInfo.tabId - The ID of the tab that became active.
+ */
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
     console.log("[Window Script]: Tab activated:", activeInfo.tabId);
 
@@ -388,13 +409,21 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     await setTabsList();
 });
 
-//NOTE - Event listener for tab creation
+/**
+ * LISTENER - Event listener for tab creation.
+ * Refreshes the displayed tabs list when a new tab is created.
+ */
 chrome.tabs.onCreated.addListener(async () => {
     console.log("[Window Script]: Tab created");
     await setTabsList();
 });
 
-//NOTE - Event listener for tab removal
+/**
+ * LISTENER - Event listener for tab removal.
+ * Cleans up stored data (selected tabs, activation times) for the removed tab
+ * and refreshes the displayed tabs list.
+ * @param {number} tabId - The ID of the tab that was removed.
+ */
 chrome.tabs.onRemoved.addListener(async (tabId) => {
     console.log("[Window Script]: Tab removed:", tabId);
 
@@ -421,7 +450,15 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     await setTabsList();
 });
 
-//NOTE - Event listener for tab updates (URL changes, etc.)
+/**
+ * LISTENER - Event listener for tab updates (e.g., URL changes, loading status).
+ * Refreshes the displayed tabs list when a tab's status becomes "complete" or its URL changes.
+ * @param {number} tabId - The ID of the tab that was updated.
+ * @param {object} changeInfo - An object containing details about the changes to the tab.
+ * @param {string} [changeInfo.status] - The tab's loading status (e.g., "complete").
+ * @param {string} [changeInfo.url] - The tab's new URL.
+ * @param {Tab} tab - The updated tab object.
+ */
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Only update when the tab is fully loaded or URL changes
     if (changeInfo.status === "complete" || changeInfo.url) {
@@ -430,7 +467,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     }
 });
 
-//NOTE - Function to display the list of tabs
+/**
+ * FUNC - Function to display the list of tabs.
+ * Displays and updates the list of open browser tabs in the extension's UI.
+ * Filters out the extension's own window, merges selected tab states,
+ * sorts tabs based on user settings, and renders them with checkboxes and favicons.
+ */
 async function setTabsList() {
     // Check if the tabs list element exists
     if (!tabsListElement) {
@@ -568,7 +610,13 @@ async function setTabsList() {
     });
 }
 
-//NOTE - Function for sorting tabs
+/**
+ * FUNC - Function for sorting tabs.
+ * Sorts an array of tab objects based on user preferences.
+ * Can sort by activation time (most recent first) or by tab ID (ascending/descending).
+ * @param {Tab[]} tabs - An array of tab objects to be sorted.
+ * @returns {Promise<Tab[]>} A promise that resolves with the sorted array of tab objects.
+ */
 async function sortTabs(tabs) {
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
         "areTabsRecentlyUpdated"
@@ -603,7 +651,12 @@ async function sortTabs(tabs) {
     }
 }
 
-//NOTE - Function to process the tab. This means injecting the content script and sending the text to each tab.
+/**
+ * FUNC - Function to process the tab. This means injecting the content script and sending the text to each tab.
+ * Processes a single tab: activates it, injects the content script (if not already present),
+ * and sends the user's input text to the content script for interaction with the chatbot.
+ * @param {Tab} tab - The tab object to process.
+ */
 async function processTab(tab) {
     console.log(
         "[Window Script]: processTab started for tab:",
@@ -674,7 +727,13 @@ async function processTab(tab) {
 
 //SECTION - Right panel functions
 
-//NOTE - Function to toggle the right panel
+/**
+ * FUNC - Function to toggle the right panel.
+ * Toggles the visibility of the right panel and displays the specified section.
+ * Manages active button states and loads content for the selected panel.
+ * @param {string} panelType - The type of panel to display ("supportedSites", "history", "saved", "settings").
+ * @param {HTMLElement} button - The button element that triggered the toggle.
+ */
 async function toggleRightPanel(panelType, button) {
     const rightPanel = document.querySelector(".right-panel");
     const sections = rightPanel.querySelectorAll('.panel-section');
@@ -732,7 +791,11 @@ async function toggleRightPanel(panelType, button) {
     rightPanel.classList.add("visible");
 }
 
-//NOTE - Function to set the supported sites panel
+/**
+ * FUNC - Function to set the supported sites panel.
+ * Populates the "Supported Sites" panel with a list of supported chatbot websites.
+ * Displays site names, links, and favicons.
+ */
 async function setSupportedSitesPanel() {
     // Target the specific container for supported sites
     const supportedSitesContainer = document.getElementById("supportedSitesContainer");
@@ -788,7 +851,11 @@ async function setSupportedSitesPanel() {
     }
 }
 
-//NOTE - Function to set the history panel
+/**
+ * FUNC - Function to set the history panel.
+ * Populates the "History" panel with the user's past prompts.
+ * Displays prompt text, timestamp, and provides a delete option.
+ */
 async function setHistoryPanel() {
     // if (currentPanel !== "history") return; // Keep this check if needed, but toggle ensures context
 
@@ -861,7 +928,11 @@ async function setHistoryPanel() {
     }
 }
 
-//NOTE - Function to set the saved prompts panel
+/**
+ * FUNC - Function to set the saved prompts panel.
+ * Populates the "Saved Prompts" panel with the user's saved prompts.
+ * Displays prompt text, timestamp, and provides a delete option.
+ */
 async function setSavedPromptsPanel() {
     // if (currentPanel !== "saved") return;
 
@@ -937,7 +1008,11 @@ async function setSavedPromptsPanel() {
 // Expose the setSavedPromptsPanel function to window for use in the export-import module
 window.setSavedPromptsPanel = setSavedPromptsPanel;
 
-//NOTE - Function to set the settings panel
+/**
+ * FUNC - Function to set the settings panel.
+ * Initializes and manages the "Settings" panel.
+ * Handles the checkbox for "Display tabs in activation order" and updates related UI elements.
+ */
 async function setSettingsPanel() {
     // Target the existing checkbox in HTML
     const areTabsRecentlyActivatedCheckbox = document.getElementById("recentlyUpdatedCheckbox");
@@ -981,7 +1056,12 @@ async function setSettingsPanel() {
 
 //!SECTION - Right panel functions
 
-//NOTE - Function to save the prompt to history
+/**
+ * FUNC - Function to save the prompt to history.
+ * Saves a given text prompt to the user's request history in local storage.
+ * Limits the history to a maximum number of items.
+ * @param {string} text - The prompt text to save.
+ */
 async function saveToHistory(text) {
     const { requestHistory = [] } = await chrome.storage.local.get(
         "requestHistory"
@@ -1009,7 +1089,11 @@ async function saveToHistory(text) {
     }
 }
 
-//NOTE - Function to save the prompt to the saved prompts
+/**
+ * FUNC - Function to save the prompt to the saved prompts.
+ * Saves a given text prompt to the user's saved prompts in local storage.
+ * @param {string} text - The prompt text to save.
+ */
 async function savePrompt(text) {
     const { savedPrompts = [] } = await chrome.storage.local.get(
         "savedPrompts"
@@ -1030,7 +1114,12 @@ async function savePrompt(text) {
     }
 }
 
-//NOTE - Utility function to format the date
+/**
+ * FUNC - Utility function to format the date.
+ * Utility function to format an ISO date string into a "YYYY.MM.DD HH:MM" format.
+ * @param {string} isoString - The ISO 8601 date string to format.
+ * @returns {string} The formatted date string.
+ */
 function formatDate(isoString) {
     const date = new Date(isoString);
     const year = date.getFullYear();
@@ -1042,7 +1131,13 @@ function formatDate(isoString) {
     return `${year}.${month}.${day} ${hours}:${minutes}`;
 }
 
-//NOTE - Function to check if the URL is supported
+/**
+ * FUNC - Function to check if the URL is supported.
+ * Checks if a given URL is a supported chatbot site.
+ * Compares the hostname of the URL against a predefined list of supported sites.
+ * @param {string} url - The URL to check.
+ * @returns {boolean} True if the URL's hostname is in the list of supported sites, false otherwise.
+ */
 function isSupportedUrl(url) {
     try {
         const urlObj = new URL(url);

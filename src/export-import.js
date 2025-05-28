@@ -3,8 +3,9 @@
  */
 
 /**
- * Export saved prompts to a JSON file
- * Downloads a JSON file containing all saved prompts
+ * FUNC - Export saved prompts to a JSON file.
+ * Downloads a JSON file containing all saved prompts from local storage.
+ * @returns {Promise<boolean>} True if the export was successful, false otherwise.
  */
 async function exportSavedPrompts() {
     try {
@@ -53,9 +54,12 @@ async function exportSavedPrompts() {
 }
 
 /**
- * Import saved prompts from a JSON file
- * Opens a file dialog and imports prompts from selected file
- * @returns {Promise<Object>} Result of the import operation with status and stats
+ * FUNC - Import saved prompts from a JSON file.
+ * Opens a file dialog, reads the selected JSON file, and imports new prompts into local storage.
+ * It handles file selection, JSON parsing, data validation, and prevents importing duplicate prompts.
+ * @returns {Promise<Object>} A promise that resolves with the result of the import operation,
+ *   including success status, number of imported prompts, total prompts in the file, and a message.
+ *   It also indicates if the user cancelled the operation.
  */
 async function importSavedPrompts() {
     return new Promise((resolve, reject) => {
@@ -195,9 +199,10 @@ async function importSavedPrompts() {
 }
 
 /**
- * Helper function to read a file as text
- * @param {File} file - The file to read
- * @returns {Promise<string>} The file contents as text
+ * FUNC - Helper function to read a file as text.
+ * Reads the content of a given File object as a plain text string.
+ * @param {File} file - The File object to read.
+ * @returns {Promise<string>} A promise that resolves with the file's content as text, or rejects on error.
  */
 function readFileAsText(file) {
     return new Promise((resolve, reject) => {

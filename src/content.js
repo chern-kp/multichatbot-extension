@@ -7,7 +7,6 @@ if (window.__contentScriptLoaded) {
     window.__contentScriptLoaded = true;
     console.log("[content.js] Script loaded and running!");
 
-
     const siteHandlers = {
         "gemini.google.com": handleGemini,
         "aistudio.google.com": handleAistudio,
@@ -23,7 +22,11 @@ if (window.__contentScriptLoaded) {
     };
 
     //SECTION - Utility functions for handlers
-    //NOTE - Step 1. Function to find the first matching text field element from a list of selectors
+    /**
+     * FUNC - Step 1. Finds the first matching text field element from a list of CSS selectors.
+     * @param {string[]} selectors - An array of CSS selectors to search for the text field.
+     * @returns {HTMLElement|null} The found text field element or null if not found.
+     */
     function findTextFieldElement(selectors) {
         console.log(
             "[content.js] Attempting to find text field with selectors:",
@@ -49,7 +52,13 @@ if (window.__contentScriptLoaded) {
         return null; // Return null if nothing is found
     }
 
-    //NOTE - Step 2. Function to set the value of a text field and dispatch events
+    /**
+     * FUNC - Step 2. Sets the value of a text field element and dispatches necessary events.
+     * Supports TEXTAREA, INPUT, and content editable elements.
+     * @param {HTMLElement} element - The text field element to set the value for.
+     * @param {string} text - The text to set in the field.
+     * @returns {boolean} True if the text was set successfully, false otherwise.
+     */
     function setTextFieldValue(element, text) {
         const preparedText = text || "";
         let success = false;
@@ -143,7 +152,12 @@ if (window.__contentScriptLoaded) {
         return success;
     }
 
-    //NOTE - Step 3. Function to find the first matching send button element from a list of selectors
+    /**
+     * FUNC - Step 3. Finds the first matching send button element from a list of CSS selectors.
+     * @param {string[]} selectors - An array of CSS selectors to search for the send button.
+     * @param {HTMLElement|null} [container=null] - The element within which to search. Defaults to the whole document.
+     * @returns {HTMLElement|null} The found send button element or null if not found.
+     */
     function findSendButtonElement(selectors, container = null) {
         console.log(
             "[content.js] Attempting to find send button with selectors:",
@@ -177,7 +191,18 @@ if (window.__contentScriptLoaded) {
         return null;
     }
 
-    //NOTE - Step 4. Function to attempt message submission (using find and click/enter)
+    /**
+     * FUNC - Step 4. Attempts to submit a message by finding and clicking a send button,
+     * with a fallback to simulating an Enter key press if the button is not found or clickable.
+     * It retries finding the button multiple times.
+     * @param {HTMLElement} textFieldElement - The text field element where the message was entered.
+     * @param {string[]} buttonSelectors - An array of CSS selectors for the send button.
+     * @param {boolean} [useEnterFallback=true] - Whether to simulate Enter key press if button click fails.
+     * @param {number} [maxAttempts=5] - Maximum number of attempts to find an active send button.
+     * @param {number} [attemptDelay=200] - Delay in milliseconds between attempts to find the button.
+     * @param {HTMLElement|null} [searchContainer=null] - The element within which to search for the button. Defaults to the whole document.
+     * @returns {Promise<boolean>} A promise that resolves to true if the message was submitted, false otherwise.
+     */
     async function attemptSubmit(
         textFieldElement,
         buttonSelectors,
@@ -257,7 +282,11 @@ if (window.__contentScriptLoaded) {
     }
 
     //SECTION - Utility functions
-    //NOTE - Function to simulate "Enter" key press
+    /**
+     * FUNC - Simulates an "Enter" key press on a given input element.
+     * This can trigger form submissions or message sends on some sites.
+     * @param {HTMLElement} input - The input element to simulate the Enter key press on.
+     */
     function simulateEnter(input) {
         const enterEvent = new KeyboardEvent("keydown", {
             key: "Enter",
@@ -271,7 +300,13 @@ if (window.__contentScriptLoaded) {
         input.dispatchEvent(enterEvent);
     }
 
-    //NOTE - Function to click the send button
+    /**
+     * FUNC - Attempts to click a given button element after a short delay.
+     * Checks if the button is visible and not disabled before clicking.
+     * @param {HTMLElement} buttonElement - The button element to click.
+     * @param {number} [waitTime=100] - The delay in milliseconds before attempting the click.
+     * @returns {Promise<boolean>} A promise that resolves to true if the button was clicked successfully, false otherwise.
+     */
     function clickSendButton(buttonElement, waitTime = 100) {
         return new Promise((resolve) => {
             setTimeout(() => {
@@ -329,11 +364,10 @@ if (window.__contentScriptLoaded) {
     }
 
     //!SECTION - Utility functions
-
     //!SECTION - Utility functions for handlers
 
     //SECTION - Site-specific handlers
-    //NOTE - Handler for Google.com
+    //FUNC - Handler for Google.com
     function handleGoogle(text) {
         const textFieldSelectors = ['textarea[name="q"]'];
         const input = findTextFieldElement(textFieldSelectors);
@@ -355,7 +389,7 @@ if (window.__contentScriptLoaded) {
         return true;
     }
 
-    //NOTE - Handler for ChatGPT.com
+    //FUNC - Handler for ChatGPT.com
     async function handleChatGPT(text) {
         const textFieldSelectors = [
             'div#prompt-textarea[contenteditable="true"]',
@@ -378,7 +412,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, chatGPTButtonSelectors, true);
     }
 
-    //NOTE - Handler for Claude.ai
+    //FUNC - Handler for Claude.ai
     async function handleClaude(text) {
         const textFieldSelectors = [
             'div[contenteditable="true"].ProseMirror',
@@ -411,7 +445,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
-    //NOTE - Handler for Abacus.ai (apps.abacus.ai, chatllm)
+    //FUNC - Handler for Abacus.ai (apps.abacus.ai, chatllm)
     async function handleAbacusChat(text) {
         const textFieldSelectors = [
             'textarea[placeholder="Write something..."]',
@@ -437,7 +471,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
-    //NOTE - Handler for deepseek.com
+    //FUNC - Handler for deepseek.com
     async function handleDeepSeek(text) {
         const textFieldSelectors = ["textarea#chat-input"];
         const input = findTextFieldElement(textFieldSelectors);
@@ -464,7 +498,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
-    //NOTE - Handler for HuggingFace Chat
+    //FUNC - Handler for HuggingFace Chat
     async function handleHuggingFace(text) {
         const textFieldSelectors = ['textarea[placeholder="Ask anything"]'];
         const input = findTextFieldElement(textFieldSelectors);
@@ -489,7 +523,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, huggingFaceButtonSelectors, true);
     }
 
-    //NOTE - Handler for Perplexity
+    //FUNC - Handler for Perplexity
     async function handlePerplexity(text) {
         const textFieldSelectors = [
             "textarea#ask-input",
@@ -519,7 +553,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
-    //NOTE - Handler for Poe.com
+    //FUNC - Handler for Poe.com
     async function handlePoe(text) {
         const textFieldSelectors = [
             'textarea.GrowingTextArea_textArea__ZWQbP[placeholder="Start a new chat"]',
@@ -546,7 +580,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, poeButtonSelectors, true);
     }
 
-    // NOTE - Handler for Gemini (gemini.google.com)
+    // FUNC - Handler for Gemini (gemini.google.com)
     async function handleGemini(text) {
         const textFieldSelectors = [
             ".ql-editor",
@@ -572,7 +606,7 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, geminiButtonSelectors, true);
     }
 
-    // NOTE - Handler for Grok.com
+    // FUNC - Handler for Grok.com
     async function handleGrokCom(text) {
         console.log("[content.js][GrokCom] Start handler");
         const textFieldSelectors = [
@@ -604,12 +638,12 @@ if (window.__contentScriptLoaded) {
         return await attemptSubmit(input, sendButtonSelectors, true);
     }
 
-    // NOTE - Handler for aistudio.google.com
+    // FUNC - Handler for aistudio.google.com
     async function handleAistudio(text) {
         console.log("[content.js][handleAistudio] Start handler");
         const textFieldSelectors = [
             'textarea[aria-label="Type something or tab to choose an example prompt"]',
-            'textarea.textarea',
+            "textarea.textarea",
         ];
         const input = findTextFieldElement(textFieldSelectors);
 
@@ -618,7 +652,9 @@ if (window.__contentScriptLoaded) {
             return false;
         }
         if (!setTextFieldValue(input, text)) {
-            console.error("[content.js][handleAistudio] Failed to set text value.");
+            console.error(
+                "[content.js][handleAistudio] Failed to set text value."
+            );
             return false;
         }
 
@@ -632,7 +668,19 @@ if (window.__contentScriptLoaded) {
 
     //!SECTION - Site-specific handlers
 
-    //NOTE - Listener that receives messages from the background script
+    /**
+     * LISTENER - Handles messages sent from the background script to this content script.
+     * This listener processes "focusAndFill" actions, which instruct the content script
+     * to interact with the current tab's webpage. It identifies the target chatbot site
+     * based on the current URL and uses the appropriate handler to fill a text field
+     * and attempt to send the message.
+     * @param {object} request - The message object sent from the background script.
+     * @param {string} request.action - The type of action to perform (e.g., "focusAndFill").
+     * @param {string} [request.text] - The text to fill into the text field.
+     * @param {MessageSender} sender - Details about the sender of the message.
+     * @param {function} sendResponse - Function to call (at most once) to send a response back to the sender.
+     * @returns {boolean} True if the response will be sent asynchronously, false otherwise.
+     */
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log("[content.js] Message received:", request);
 

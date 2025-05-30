@@ -1149,11 +1149,8 @@ function formatDate(isoString) {
  */
 function isSupportedUrl(url) {
     try {
-        const urlObj = new URL(url);
-        const hostname = urlObj.hostname; // Get only the hostname, e.g., "mail.google.com" or "google.com"
-
-        // Check if the hostname is an exact match with any of the supported sites
-        return SUPPORTED_SITES.some(supportedSite => hostname === supportedSite);
+        // Check if the URL includes any of the supported site strings
+        return SUPPORTED_SITES.some(supportedSite => url.includes(supportedSite));
     } catch (e) {
         // Handle invalid URLs
         console.error("[Window Script]: Invalid URL:", url, e);

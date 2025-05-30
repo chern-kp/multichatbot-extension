@@ -343,10 +343,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                     await new Promise((resolve) => setTimeout(resolve, 500));
 
                     console.log(
-                        "[Window Script]: Successfully processed tab:",
-                        tabId,
-                        tab.url
-                    );
+                    "[Window Script]: Successfully processed tab:",
+                    tab.id,
+                    tab.url
+                );
                 } catch (error) {
                     console.error(
                         `[Window Script]: Failed to process tab ${tabId}:`,

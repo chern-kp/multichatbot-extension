@@ -63,6 +63,9 @@ if (window.__contentScriptLoaded) {
         const preparedText = text || "";
         let success = false;
 
+        // Ensure the element is focused before setting its value
+        element.focus();
+
         console.log(
             `[content.js] Attempting to set text for element:`,
             element,
@@ -200,6 +203,7 @@ if (window.__contentScriptLoaded) {
      * @param {boolean} [useEnterFallback=true] - Whether to simulate Enter key press if button click fails.
      * @param {number} [maxAttempts=5] - Maximum number of attempts to find an active send button.
      * @param {number} [attemptDelay=200] - Delay in milliseconds between attempts to find the button.
+     * @param {number} [delayBeforeFindingButton=200] - Initial delay in milliseconds before starting to find the button.
      * @param {HTMLElement|null} [searchContainer=null] - The element within which to search for the button. Defaults to the whole document.
      * @returns {Promise<boolean>} A promise that resolves to true if the message was submitted, false otherwise.
      */
@@ -209,12 +213,19 @@ if (window.__contentScriptLoaded) {
         useEnterFallback = true,
         maxAttempts = 5,
         attemptDelay = 200,
+        delayBeforeFindingButton = 200,
         searchContainer = null
     ) {
         let sendButton = null;
         let attempt = 0;
 
-        // 1. Attempt to find the active send button
+        // 1. Add an initial delay before starting to find the button
+        if (delayBeforeFindingButton > 0) {
+            console.log(`[content.js][attemptSubmit] Initial delay of ${delayBeforeFindingButton}ms before finding button.`);
+            await new Promise((resolve) => setTimeout(resolve, delayBeforeFindingButton));
+        }
+
+        // 2. Attempt to find the active send button
         while (attempt < maxAttempts) {
             const foundElement = findSendButtonElement(
                 buttonSelectors,
@@ -246,7 +257,7 @@ if (window.__contentScriptLoaded) {
             attempt++;
         }
 
-        // 2. Attempt to click the button if found
+        // 3. Attempt to click the button if found
         if (sendButton) {
             const clicked = await clickSendButton(sendButton);
             if (clicked) {
@@ -265,7 +276,7 @@ if (window.__contentScriptLoaded) {
             );
         }
 
-        // 3. Fallback to Enter
+        // 4. Fallback to Enter
         if (useEnterFallback) {
             console.log(
                 "[content.js][attemptSubmit] Attempting to simulate Enter."

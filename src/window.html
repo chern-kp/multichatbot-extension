@@ -4,73 +4,36 @@
 <head>
   <meta charset="UTF-8">
   <title>MultiChatbot</title>
-  <style>
-  </style>
+  <link rel="stylesheet" href="style/style.css">
 </head>
-
 <body>
-  <div class="app-wrapper">
-    <div class="main-panel">
-      <div class="main-panel__top-container">
+  <div class="top-container">
+    <div class="top-container__main-panel">
+      <div class="top-container__main-panel-content">
         <div class="sort-container">
           <button class="update-button minimal-button" id="updateButton">⟳</button>
           <button class="sort-button minimal-button" id="sortButton">Sorting</button>
         </div>
         <div class="tabs-container" id="tabsList"></div>
       </div>
-      <div class="main-panel__bottom-container">
-        <div class="buttons-container" style="margin-bottom: 10px;">
-          <button class="minimal-button" id="openSupportedSitesButton">Supported Sites</button>
-          <button class="minimal-button" id="openHistoryButton">History</button>
-          <button class="minimal-button" id="openSavedPromptsButton">Saved Prompts</button>
-          <button class="minimal-button" id="openSettingsButton">Settings</button>
-        </div>
-        <div class="textbox-container">
-          <textarea class="input-text" id="inputText" placeholder="Enter the prompt..."></textarea>
-          <div class="button-group">
-            <button class="minimal-button" id="sendButton">Send</button>
-            <button class="minimal-button" id="savePromptButton">Save current prompt</button>
-          </div>
-          <div class="footer-links-container">
-            <a href="https://github.com/chern-kp/multichatbot-extension" target="_blank" class="footer-link">
-              <span class="footer-link-content">
-                <svg class="github-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" version="1.1" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38C13.71 14.53 16 11.54 16 8c0-4.42-3.58-8-8-8z"></path></svg>
-                GitHub Page
-              </span>
-            </a>
-            <a href="https://github.com/chern-kp/multichatbot-extension/issues" target="_blank" class="footer-link">
-              <span class="footer-link-content">
-                <svg class="github-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" version="1.1" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38C13.71 14.53 16 11.54 16 8c0-4.42-3.58-8-8-8z"></path></svg>
-                Report Broken Site
-              </span>
-            </a>
-          </div>
-        </div>
-      </div>
     </div>
-    <div class="right-panel" id="rightPanel">
+
+    <div class="top-container__right-panel" id="rightPanel">
       <div id="supportedSitesSection" class="panel-section">
         <h3>Supported Sites</h3>
-        <div id="supportedSitesContainer" class="panel-content-area">
-          <!-- Supported sites will be loaded here by JS -->
-        </div>
+        <div id="supportedSitesContainer" class="panel-content-area"></div>
       </div>
       <div id="historySection" class="panel-section">
         <h3>History</h3>
-        <div id="historyContainer" class="panel-content-area">
-          <!-- History items will be loaded here by JS -->
-        </div>
+        <div id="historyContainer" class="panel-content-area"></div>
       </div>
       <div id="savedPromptsSection" class="panel-section">
         <h3>Saved Prompts</h3>
-        <div id="savedPromptsContainer" class="panel-content-area">
-          <!-- Saved prompts will be loaded here by JS -->
-        </div>
+        <div id="savedPromptsContainer" class="panel-content-area"></div>
       </div>
       <div id="settingsSection" class="panel-section">
         <h3>Settings</h3>
         <div id="settingsContainer" class="panel-content-area">
-          <!-- Settings controls will be loaded here by JS -->
           <div class="setting-item-container">
             <input type="checkbox" id="recentlyUpdatedCheckbox" class="recently-activated-setting-checkbox">
             <label for="recentlyUpdatedCheckbox" class="recently-activated-setting-label">Display tabs in activation order, instead of creation order</label>
@@ -86,9 +49,43 @@
       </div>
     </div>
   </div>
+
+  <div class="bottom-container">
+    <div class="top-button-container" style="margin-bottom: 10px;">
+      <button class="minimal-button" id="openSupportedSitesButton">Supported Sites</button>
+      <button class="minimal-button" id="openHistoryButton">History</button>
+      <button class="minimal-button" id="openSavedPromptsButton">Saved Prompts</button>
+      <button class="minimal-button" id="openSettingsButton">Settings</button>
+    </div>
+    <div id="errorMessageContainer" class="error-message-container hidden">
+        <span class="error-message-text"></span>
+        <button class="error-message-close-button">✕</button>
+    </div>
+    <textarea class="input-text" id="inputText" placeholder="Enter the prompt..."></textarea>
+    <div class="textbox-container">
+      <div class="bottom-button-container">
+        <button class="minimal-button" id="sendButton">Send</button>
+        <button class="minimal-button" id="savePromptButton">Save current prompt</button>
+      </div>
+      <div class="footer-links-container">
+        <a href="https://github.com/chern-kp/multichatbot-extension" target="_blank" class="footer-link">
+          <span class="footer-link-content">
+            <svg class="github-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" version="1.1" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38C13.71 14.53 16 11.54 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+            GitHub Page
+          </span>
+        </a>
+        <a href="https://github.com/chern-kp/multichatbot-extension/issues" target="_blank" class="footer-link">
+          <span class="footer-link-content">
+            <svg class="github-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" version="1.1" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38C13.71 14.53 16 11.54 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+            Report Broken Site
+          </span>
+        </a>
+      </div>
+    </div>
+  </div>
+
   <script src="export-import.js"></script>
   <script src="window.js"></script>
-  <link rel="stylesheet" href="style/style.css">
 </body>
 
 </html>

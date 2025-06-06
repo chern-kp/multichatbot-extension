@@ -1,4 +1,5 @@
 console.log("[Window Script]: Window script loaded");
+import './debug.js';
 
 //NOTE - List of supported sites
 const SUPPORTED_SITES = [
@@ -1480,3 +1481,4 @@ function isSupportedUrl(url) {
 }
 
 //!SECTION - Utility Functions
+

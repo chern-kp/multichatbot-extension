@@ -1,6 +1,7 @@
 /**
  * File for handling import and export of saved prompts
  */
+import './debug.js';
 
 /**
  * FUNC - Export saved prompts to a JSON file.

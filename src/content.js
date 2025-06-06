@@ -1,5 +1,15 @@
 //This file is injected into the webpage by the function processTab() in window.js
 
+const DEVMODE = true; // False for production, true for development
+
+if (!DEVMODE) {
+    console.log = function() {};
+    console.error = function() {};
+    console.warn = function() {};
+    console.info = function() {};
+    console.debug = function() {};
+}
+
 // Set a global marker to indicate that the script has been loaded
 if (window.__contentScriptLoaded) {
     console.log("[content.js] Script already loaded, skipping initialization");

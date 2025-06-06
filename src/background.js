@@ -1,4 +1,5 @@
 // Stores the ID of the extension window
+import './debug.js';
 let windowId = null;
 
 // Minimum size of the extension window

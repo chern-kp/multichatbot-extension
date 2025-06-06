@@ -292,8 +292,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.log(
                 `[Window Script]: Tab ${tab.id} is not complete (${tab.status}). Reloading...`
             );
-            await chrome.tabs.reload(tab.id);
-            console.log(`[Window Script]: Tab ${tab.id} reload initiated.`);
+            try {
+                await chrome.tabs.reload(tab.id);
+                console.log(`[Window Script]: Tab ${tab.id} reload initiated.`);
+            } catch (error) {
+                console.error(`[Window Script]: Error reloading tab ${tab.id}:`, error);
+                displayErrorInUI(`Failed to reload tab ${tab.id}: ${error.message}`, tab.url, tab.title);
+                return; // Stop processing this tab if reload fails
+            }
         }
 
         // Ensure the tab is fully loaded before proceeding, whether it was reloaded or already loading
@@ -390,15 +396,39 @@ document.addEventListener("DOMContentLoaded", async function () {
             chrome.tabs.onUpdated.addListener(listener);
 
             // Check current status in case it's already complete
-            chrome.tabs.get(tabId, (tab) => {
-                if (tab && tab.status === "complete") {
-                    console.log(
-                        `[Window Script]: Tab ${tabId} is already complete.`
-                    );
-                    chrome.tabs.onUpdated.removeListener(listener);
-                    resolve();
-                }
-            });
+            try {
+                chrome.tabs.get(tabId, (tab) => {
+                    if (chrome.runtime.lastError) {
+                        const errorMessage = chrome.runtime.lastError.message;
+                        console.warn(`[Window Script]: Error getting tab ${tabId} in waitForTabLoad:`, errorMessage);
+                        displayErrorInUI(`Failed to get tab ${tabId} in waitForTabLoad: ${errorMessage}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
+                        // Resolve anyway, as the tab might have been closed, and we don't want to hang
+                        try {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                        } catch (error) {
+                            console.warn(`[Window Script]: Error removing tab update listener after get error for tab ${tabId}:`, error);
+                        }
+                        resolve();
+                        return;
+                    }
+                    if (tab && tab.status === "complete") {
+                        console.log(
+                            `[Window Script]: Tab ${tabId} is already complete.`
+                        );
+                        try {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                        } catch (error) {
+                            console.warn(`[Window Script]: Error removing tab update listener for tab ${tabId}:`, error);
+                        }
+                        resolve();
+                    }
+                });
+            } catch (error) {
+                console.warn(`[Window Script]: Unexpected error in chrome.tabs.get for tab ${tabId}:`, error);
+                displayErrorInUI(`Unexpected error getting tab ${tabId} in waitForTabLoad: ${error.message}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
+                // Resolve to prevent hanging if an unexpected error occurs
+                resolve();
+            }
         });
     }
 
@@ -622,20 +652,33 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Process valid tabs
             for (const tabId of validSelectedTabIds) {
                 try {
-                    const tab = await chrome.tabs.get(tabId);
+                    let tab = null;
+                    try {
+                        tab = await chrome.tabs.get(tabId);
+                    } catch (getError) {
+                        console.warn(`[Window Script]: Tab ${tabId} no longer exists or cannot be accessed:`, getError);
+                        displayErrorInUI(`Tab ${tabId} no longer exists or cannot be accessed: ${getError.message}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
+                        continue; // Skip to next tab
+                    }
+
                     if (!tab) {
-                        console.warn(
-                            `[Window Script]: Tab ${tabId} no longer exists`
-                        );
-                        continue;
+                        console.warn(`[Window Script]: Tab ${tabId} no longer exists (after get check).`);
+                        displayErrorInUI(`Tab ${tabId} no longer exists.`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
+                        continue; // Skip to next tab
                     }
 
                     // Activate the tab
-                    await chrome.tabs.update(tabId, { active: true });
-                    // Get the updated tab object after activation
-                    const activatedTab = await chrome.tabs.get(tabId);
+                    try {
+                        await chrome.tabs.update(tabId, { active: true });
+                        // Get the updated tab object after activation
+                        tab = await chrome.tabs.get(tabId); // Re-fetch to get updated status/properties
+                    } catch (updateError) {
+                        console.error(`[Window Script]: Failed to activate or get updated tab ${tabId}:`, updateError);
+                        displayErrorInUI(`Failed to activate tab ${tabId}: ${updateError.message}`, tab.url, tab.title);
+                        continue; // Skip to next tab
+                    }
 
-                    await processTab(activatedTab);
+                    await processTab(tab);
 
                     // Add delay between tabs
                     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -650,6 +693,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                         `[Window Script]: Failed to process tab ${tabId}:`,
                         error
                     );
+                    // displayErrorInUI is already called inside processTab for specific errors
+                    // This catch is for errors that might occur outside processTab but within the loop
+                    displayErrorInUI(`Failed to process tab ${tabId}: ${error.message}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
                 }
             }
         } catch (error) {
@@ -704,22 +750,26 @@ document.addEventListener("DOMContentLoaded", async function () {
  */
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
     console.log("[Window Script]: Tab activated:", activeInfo.tabId);
+    try {
+        // Get current data
+        const { tabActivationTimes: currentData = {} } =
+            await chrome.storage.local.get("tabActivationTimes");
 
-    // Get current data
-    const { tabActivationTimes: currentData = {} } =
-        await chrome.storage.local.get("tabActivationTimes");
+        // Update activation time for current tab
+        currentData[activeInfo.tabId] = Date.now();
 
-    // Update activation time for current tab
-    currentData[activeInfo.tabId] = Date.now();
+        // Save updated data
+        await chrome.storage.local.set({ tabActivationTimes: currentData });
 
-    // Save updated data
-    await chrome.storage.local.set({ tabActivationTimes: currentData });
+        // Update local copy
+        tabActivationTimes = currentData;
 
-    // Update local copy
-    tabActivationTimes = currentData;
-
-    // Refresh the tabs list on tab activation
-    await setTabsList();
+        // Refresh the tabs list on tab activation
+        await setTabsList();
+    } catch (error) {
+        console.error("[Window Script]: Error in tab activation listener:", error);
+        displayErrorInUI(`Failed to update tab activation data: ${error.message}`, "N/A", "Extension Window");
+    }
 });
 
 /**
@@ -728,7 +778,12 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
  */
 chrome.tabs.onCreated.addListener(async () => {
     console.log("[Window Script]: Tab created");
-    await setTabsList();
+    try {
+        await setTabsList();
+    } catch (error) {
+        console.error("[Window Script]: Error in tab creation listener:", error);
+        displayErrorInUI(`Failed to update tabs list on tab creation: ${error.message}`, "N/A", "Extension Window");
+    }
 });
 
 /**
@@ -739,28 +794,32 @@ chrome.tabs.onCreated.addListener(async () => {
  */
 chrome.tabs.onRemoved.addListener(async (tabId) => {
     console.log("[Window Script]: Tab removed:", tabId);
+    try {
+        // Clean up selectedTabs
+        const { selectedTabs = {} } = await chrome.storage.local.get(
+            "selectedTabs"
+        );
+        if (selectedTabs[tabId]) {
+            delete selectedTabs[tabId];
+            await chrome.storage.local.set({ selectedTabs });
+        }
 
-    // Clean up selectedTabs
-    const { selectedTabs = {} } = await chrome.storage.local.get(
-        "selectedTabs"
-    );
-    if (selectedTabs[tabId]) {
-        delete selectedTabs[tabId];
-        await chrome.storage.local.set({ selectedTabs });
+        // Clean up activation times
+        const { tabActivationTimes: currentData = {} } =
+            await chrome.storage.local.get("tabActivationTimes");
+        if (currentData[tabId]) {
+            delete currentData[tabId];
+            await chrome.storage.local.set({ tabActivationTimes: currentData });
+
+            // Update local copy
+            tabActivationTimes = currentData;
+        }
+
+        await setTabsList();
+    } catch (error) {
+        console.error("[Window Script]: Error in tab removal listener:", error);
+        displayErrorInUI(`Failed to clean up tab data: ${error.message}`, "N/A", "Extension Window");
     }
-
-    // Clean up activation times
-    const { tabActivationTimes: currentData = {} } =
-        await chrome.storage.local.get("tabActivationTimes");
-    if (currentData[tabId]) {
-        delete currentData[tabId];
-        await chrome.storage.local.set({ tabActivationTimes: currentData });
-
-        // Update local copy
-        tabActivationTimes = currentData;
-    }
-
-    await setTabsList();
 });
 
 /**
@@ -776,7 +835,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Only update when the tab is fully loaded or URL changes
     if (changeInfo.status === "complete" || changeInfo.url) {
         console.log("[Window Script]: Tab updated:", tabId);
-        await setTabsList();
+        try {
+            await setTabsList();
+        } catch (error) {
+            console.error("[Window Script]: Error in tab update listener:", error);
+            displayErrorInUI(`Failed to update tabs list on tab update: ${error.message}`, tab.url, tab.title);
+        }
     }
 });
 
@@ -787,143 +851,148 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
  * and dynamically creates/updates the tab list in the UI.
  */
 async function setTabsList() {
-    // Get current settings
-    const { areTabsRecentlyUpdated = false } = await chrome.storage.local.get(
-        "areTabsRecentlyUpdated"
-    );
-    console.log(
-        "[Window Script]: Tab activation order enabled:",
-        areTabsRecentlyUpdated
-    );
+    try {
+        // Get current settings
+        const { areTabsRecentlyUpdated = false } = await chrome.storage.local.get(
+            "areTabsRecentlyUpdated"
+        );
+        console.log(
+            "[Window Script]: Tab activation order enabled:",
+            areTabsRecentlyUpdated
+        );
 
-    const tabs = await chrome.tabs.query({});
-    const currentTabIds = new Set(tabs.map((tab) => tab.id));
+        const tabs = await chrome.tabs.query({});
+        const currentTabIds = new Set(tabs.map((tab) => tab.id));
 
-    // Get the URL of the extension's window
-    const extensionWindowUrl = chrome.runtime.getURL("src/window.html");
-    console.log("[Window Script]: Extension window URL:", extensionWindowUrl);
+        // Get the URL of the extension's window
+        const extensionWindowUrl = chrome.runtime.getURL("src/window.html");
+        console.log("[Window Script]: Extension window URL:", extensionWindowUrl);
 
-    // Filter out the extension's own window from the list of tabs
-    const filteredTabs = tabs.filter((tab) => tab.url !== extensionWindowUrl);
+        // Filter out the extension's own window from the list of tabs
+        const filteredTabs = tabs.filter((tab) => tab.url !== extensionWindowUrl);
 
-    // Clean up selectedTabs storage
-    const { selectedTabs = {} } = await chrome.storage.local.get(
-        "selectedTabs"
-    );
-    const cleanedSelectedTabs = {};
-    Object.keys(selectedTabs)
-        .map(Number)
-        .filter((id) => currentTabIds.has(id))
-        .forEach((id) => {
-            cleanedSelectedTabs[id] = true;
+        // Clean up selectedTabs storage
+        const { selectedTabs = {} } = await chrome.storage.local.get(
+            "selectedTabs"
+        );
+        const cleanedSelectedTabs = {};
+        Object.keys(selectedTabs)
+            .map(Number)
+            .filter((id) => currentTabIds.has(id))
+            .forEach((id) => {
+                cleanedSelectedTabs[id] = true;
+            });
+
+        // Get current checkbox states from DOM before clearing
+        const currentDomSelectedTabs = {};
+        const existingCheckboxes =
+            tabsListElement.querySelectorAll(".tab-checkbox");
+        existingCheckboxes.forEach((checkbox) => {
+            const tabId = Number(checkbox.dataset.tabId);
+            if (checkbox.checked) {
+                currentDomSelectedTabs[tabId] = true;
+            }
         });
 
-    // Get current checkbox states from DOM before clearing
-    const currentDomSelectedTabs = {};
-    const existingCheckboxes =
-        tabsListElement.querySelectorAll(".tab-checkbox");
-    existingCheckboxes.forEach((checkbox) => {
-        const tabId = Number(checkbox.dataset.tabId);
-        if (checkbox.checked) {
-            currentDomSelectedTabs[tabId] = true;
-        }
-    });
-
-    // Merge stored selectedTabs with current DOM selectedTabs
-    // DOM state takes precedence for currently displayed tabs
-    const mergedSelectedTabs = {
-        ...cleanedSelectedTabs,
-        ...currentDomSelectedTabs,
-    };
-
-    await chrome.storage.local.set({ selectedTabs: mergedSelectedTabs });
-
-    // Clear the current list
-    tabsListElement.innerHTML = "";
-
-    // Sort the *filtered* tabs
-    const sortedTabs = await sortTabs(filteredTabs);
-
-    // Create tab items
-    sortedTabs.forEach((tab) => {
-        /* console.log(
-            "[Window Script]: Creating tab item for:",
-            tab.id,
-            tab.title
-        ); */ //NOTE - Commented out to avoid spamming the console
-
-        const tabItem = document.createElement("div");
-        tabItem.className = "tab-item";
-
-        const isSupported = isSupportedUrl(tab.url);
-        tabItem.classList.add(isSupported ? "supported" : "unsupported");
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.className = "tab-checkbox";
-        // Use the merged state for setting the checkbox's checked status
-        checkbox.checked = isSupported && (mergedSelectedTabs[tab.id] || false);
-        checkbox.dataset.tabId = tab.id;
-        checkbox.disabled = !isSupported;
-
-        const title = document.createElement("div");
-        title.className = "tab-title";
-        title.title = tab.title;
-        title.textContent = tab.title;
-
-        const url = document.createElement("div");
-        url.className = "tab-url";
-        url.textContent = tab.url;
-        url.title = tab.url;
-
-        const favicon = document.createElement("img");
-        favicon.className = "tab-favicon";
-        favicon.src =
-            tab.favIconUrl || chrome.runtime.getURL("icons/globe.svg");
-        favicon.alt = `${tab.title} icon`;
-
-        // Error handling for favicon
-        favicon.onerror = () => {
-            console.log(
-                `[Window Script]: Failed to load favicon for tab ${tab.id}. Using placeholder.`
-            );
-            favicon.src = chrome.runtime.getURL("icons/globe.svg"); // Ensure placeholder is loaded correctly
+        // Merge stored selectedTabs with current DOM selectedTabs
+        // DOM state takes precedence for currently displayed tabs
+        const mergedSelectedTabs = {
+            ...cleanedSelectedTabs,
+            ...currentDomSelectedTabs,
         };
 
-        const tabInfo = document.createElement("div");
-        tabInfo.className = "tab-info";
-        tabInfo.appendChild(title);
-        tabInfo.appendChild(url);
+        await chrome.storage.local.set({ selectedTabs: mergedSelectedTabs });
 
-        tabItem.appendChild(checkbox);
-        tabItem.appendChild(favicon);
-        tabItem.appendChild(tabInfo);
-        tabsListElement.appendChild(tabItem);
+        // Clear the current list
+        tabsListElement.innerHTML = "";
 
-        if (isSupported) {
-            tabItem.addEventListener("click", async (event) => {
-                // Prevent the click event from propagating if the click was directly on the checkbox
-                // This avoids double-toggling if the user clicks the checkbox itself
-                if (event.target === checkbox) {
-                    return;
-                }
+        // Sort the *filtered* tabs
+        const sortedTabs = await sortTabs(filteredTabs);
 
-                // Toggle the checkbox state
-                checkbox.checked = !checkbox.checked;
+        // Create tab items
+        sortedTabs.forEach((tab) => {
 
-                // Update storage based on the new checkbox state
-                const { selectedTabs = {} } = await chrome.storage.local.get(
-                    "selectedTabs"
+            const tabItem = document.createElement("div");
+            tabItem.className = "tab-item";
+
+            const isSupported = isSupportedUrl(tab.url);
+            tabItem.classList.add(isSupported ? "supported" : "unsupported");
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "tab-checkbox";
+            // Use the merged state for setting the checkbox's checked status
+            checkbox.checked = isSupported && (mergedSelectedTabs[tab.id] || false);
+            checkbox.dataset.tabId = tab.id;
+            checkbox.disabled = !isSupported;
+
+            const title = document.createElement("div");
+            title.className = "tab-title";
+            title.title = tab.title;
+            title.textContent = tab.title;
+
+            const url = document.createElement("div");
+            url.className = "tab-url";
+            url.textContent = tab.url;
+            url.title = tab.url;
+
+            const favicon = document.createElement("img");
+            favicon.className = "tab-favicon";
+            favicon.src =
+                tab.favIconUrl || chrome.runtime.getURL("icons/globe.svg");
+            favicon.alt = `${tab.title} icon`;
+
+            // Error handling for favicon
+            favicon.onerror = () => {
+                console.log(
+                    `[Window Script]: Failed to load favicon for tab ${tab.id}. Using placeholder.`
                 );
-                if (checkbox.checked) {
-                    selectedTabs[tab.id] = true;
-                } else {
-                    delete selectedTabs[tab.id];
-                }
-                await chrome.storage.local.set({ selectedTabs });
-            });
-        }
-    });
+                favicon.src = chrome.runtime.getURL("icons/globe.svg"); // Ensure placeholder is loaded correctly
+            };
+
+            const tabInfo = document.createElement("div");
+            tabInfo.className = "tab-info";
+            tabInfo.appendChild(title);
+            tabInfo.appendChild(url);
+
+            tabItem.appendChild(checkbox);
+            tabItem.appendChild(favicon);
+            tabItem.appendChild(tabInfo);
+            tabsListElement.appendChild(tabItem);
+
+            if (isSupported) {
+                tabItem.addEventListener("click", async (event) => {
+                    // Prevent the click event from propagating if the click was directly on the checkbox
+                    // This avoids double-toggling if the user clicks the checkbox itself
+                    if (event.target === checkbox) {
+                        return;
+                    }
+
+                    // Toggle the checkbox state
+                    checkbox.checked = !checkbox.checked;
+
+                    // Update storage based on the new checkbox state
+                    try {
+                        const { selectedTabs = {} } = await chrome.storage.local.get(
+                            "selectedTabs"
+                        );
+                        if (checkbox.checked) {
+                            selectedTabs[tab.id] = true;
+                        } else {
+                            delete selectedTabs[tab.id];
+                        }
+                        await chrome.storage.local.set({ selectedTabs });
+                    } catch (error) {
+                        console.error(`[Window Script]: Error updating selected tabs for tab ${tab.id}:`, error);
+                        displayErrorInUI(`Failed to update selected tab state for ${tab.title}: ${error.message}`, tab.url, tab.title);
+                    }
+                });
+            }
+        });
+    } catch (error) {
+        console.error("[Window Script]: Error in setTabsList:", error);
+        displayErrorInUI(`Failed to update tabs list: ${error.message}`, "N/A", "Extension Window");
+    }
 }
 
 /**
@@ -934,39 +1003,44 @@ async function setTabsList() {
  * @returns {Promise<Tab[]>} A promise that resolves with the sorted array of tab objects.
  */
 async function sortTabs(tabs) {
-    const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
-        "areTabsRecentlyUpdated"
-    );
-
-    if (areTabsRecentlyUpdated) {
-        // Sort by activation time (most recent first)
-        console.log(
-            "[Window Script]: Sorting by activation time (most recent first)."
+    try {
+        const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
+            "areTabsRecentlyUpdated"
         );
-        const activationTimes = tabActivationTimes || {};
 
-        // Create a map for quick time lookup, defaulting to 0 if not found
-        const tabTimeMap = new Map();
-        tabs.forEach((tab) => {
-            const time = activationTimes[tab.id] || 0;
-            tabTimeMap.set(tab.id, time);
-            // console.log(`[Window Script]: Tab ${tab.id} mapped time:`, new Date(time).toISOString()); //NOTE - Commented out to avoid spamming the console
-        });
+        if (areTabsRecentlyUpdated) {
+            // Sort by activation time (most recent first)
+            console.log(
+                "[Window Script]: Sorting by activation time (most recent first)."
+            );
+            const activationTimes = tabActivationTimes || {};
 
-        return [...tabs].sort((a, b) => {
-            const timeA = tabTimeMap.get(a.id);
-            const timeB = tabTimeMap.get(b.id);
-            // Sort primarily by time descending, secondarily by ID descending for stability
-            return timeB - timeA || b.id - a.id;
-        });
-    } else {
-        // Sort by tab ID using the selected direction
-        console.log(
-            `[Window Script]: Sorting by ID. Direction: ${sortDirection}`
-        );
-        return [...tabs].sort((a, b) =>
-            sortDirection === "desc" ? b.id - a.id : a.id - b.id
-        );
+            // Create a map for quick time lookup, defaulting to 0 if not found
+            const tabTimeMap = new Map();
+            tabs.forEach((tab) => {
+                const time = activationTimes[tab.id] || 0;
+                tabTimeMap.set(tab.id, time);
+                // console.log(`[Window Script]: Tab ${tab.id} mapped time:`, new Date(time).toISOString()); //NOTE - Commented out to avoid spamming the console
+            });
+
+            return [...tabs].sort((a, b) => {
+                const timeA = tabTimeMap.get(a.id);
+                const timeB = tabTimeMap.get(b.id);
+                // Sort primarily by time descending, secondarily by ID descending for stability
+                return timeB - timeA || b.id - a.id;
+            });
+        } else {
+            // Sort by tab ID using the selected direction
+            console.log(
+                `[Window Script]: Sorting by ID. Direction: ${sortDirection}`
+            );
+            return [...tabs].sort((a, b) =>
+                sortDirection === "desc" ? b.id - a.id : a.id - b.id
+            );
+        }
+    } catch (error) {
+        console.error("[Window Script]: Error in sortTabs:", error);
+        throw error; // Re-throw to be caught by caller
     }
 }
 
@@ -1293,43 +1367,53 @@ async function setSettingsPanel() {
             isEnabled
         );
 
-        // Update the setting in storage
-        await chrome.storage.local.set({
-            areTabsRecentlyUpdated: isEnabled,
-        });
+        try {
+            // Update the setting in storage
+            await chrome.storage.local.set({
+                areTabsRecentlyUpdated: isEnabled,
+            });
 
-        // Verify the setting was saved
+            // Verify the setting was saved
+            const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
+                "areTabsRecentlyUpdated"
+            );
+            console.log(
+                "[Window Script]: Verified saved setting:",
+                areTabsRecentlyUpdated
+            );
+
+            console.log(
+                "[Window Script]: Tab activation sorting changed to:",
+                isEnabled
+            );
+
+            // Disable sort button if the checkbox is checked
+            const sortButton = document.querySelector(".sort-button");
+            sortButton.disabled = isEnabled;
+            sortButton.classList.toggle("disabled", isEnabled);
+
+            // After checkbox status change, update the tabs list
+            await setTabsList();
+        } catch (error) {
+            console.error("[Window Script]: Error saving setting or updating tabs list:", error);
+            displayErrorInUI(`Failed to save setting: ${error.message}`, "N/A", "Extension Window");
+        }
+    });
+
+    try {
+        // Display checkbox status from storage
         const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
             "areTabsRecentlyUpdated"
         );
         console.log(
-            "[Window Script]: Verified saved setting:",
+            "[Window Script]: Loading initial setting value:",
             areTabsRecentlyUpdated
         );
-
-        console.log(
-            "[Window Script]: Tab activation sorting changed to:",
-            isEnabled
-        );
-
-        // Disable sort button if the checkbox is checked
-        const sortButton = document.querySelector(".sort-button");
-        sortButton.disabled = isEnabled;
-        sortButton.classList.toggle("disabled", isEnabled);
-
-        // After checkbox status change, update the tabs list
-        await setTabsList();
-    });
-
-    // Display checkbox status from storage
-    const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
-        "areTabsRecentlyUpdated"
-    );
-    console.log(
-        "[Window Script]: Loading initial setting value:",
-        areTabsRecentlyUpdated
-    );
-    areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
+        areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
+    } catch (error) {
+        console.error("[Window Script]: Error loading initial setting:", error);
+        displayErrorInUI(`Failed to load settings: ${error.message}`, "N/A", "Extension Window");
+    }
 }
 
 //!SECTION - Settings Functions
@@ -1345,31 +1429,34 @@ async function setSettingsPanel() {
  * @param {string} text - The prompt text to save.
  */
 async function saveToHistory(text) {
-    const { requestHistory = [] } = await chrome.storage.local.get(
-        "requestHistory"
-    );
+    try {
+        const { requestHistory = [] } = await chrome.storage.local.get(
+            "requestHistory"
+        );
 
-    const newHistoryItem = {
-        text,
-        timestamp: new Date().toISOString(),
-        id: Date.now(),
-    };
+        const newHistoryItem = {
+            text,
+            timestamp: new Date().toISOString(),
+            id: Date.now(),
+        };
 
-    // Add new item to the beginning of the array
-    requestHistory.unshift(newHistoryItem);
+        // Add new item to the beginning of the array
+        requestHistory.unshift(newHistoryItem);
 
-    // Limit the number of history items
-    if (requestHistory.length > MAX_HISTORY_ITEMS) {
-        requestHistory.pop();
-    }
+        // Limit the number of history items
+        if (requestHistory.length > MAX_HISTORY_ITEMS) {
+            requestHistory.pop();
+        }
 
-    await chrome.storage.local.set({ requestHistory });
+        await chrome.storage.local.set({ requestHistory });
 
-    /* Update the history panel if it is currently active using updateHistoryPanel function
-     *
-     */
-    if (currentPanel === "history") {
-        await setHistoryPanel();
+        // Update the history panel if it is currently active using updateHistoryPanel function
+        if (currentPanel === "history") {
+            await setHistoryPanel();
+        }
+    } catch (error) {
+        console.error("[Window Script]: Error saving to history:", error);
+        displayErrorInUI(`Failed to save to history: ${error.message}`, "N/A", "Extension Window");
     }
 }
 
@@ -1379,22 +1466,27 @@ async function saveToHistory(text) {
  * @param {string} text - The prompt text to save.
  */
 async function savePrompt(text) {
-    const { savedPrompts = [] } = await chrome.storage.local.get(
-        "savedPrompts"
-    );
+    try {
+        const { savedPrompts = [] } = await chrome.storage.local.get(
+            "savedPrompts"
+        );
 
-    const newPrompt = {
-        text,
-        timestamp: new Date().toISOString(),
-        id: Date.now(),
-    };
+        const newPrompt = {
+            text,
+            timestamp: new Date().toISOString(),
+            id: Date.now(),
+        };
 
-    savedPrompts.unshift(newPrompt);
-    await chrome.storage.local.set({ savedPrompts });
+        savedPrompts.unshift(newPrompt);
+        await chrome.storage.local.set({ savedPrompts });
 
-    // Update the saved prompts panel if it is currently active using updateSavedPromptsPanel function
-    if (currentPanel === "saved") {
-        await setSavedPromptsPanel();
+        // Update the saved prompts panel if it is currently active using updateSavedPromptsPanel function
+        if (currentPanel === "saved") {
+            await setSavedPromptsPanel();
+        }
+    } catch (error) {
+        console.error("[Window Script]: Error saving prompt:", error);
+        displayErrorInUI(`Failed to save prompt: ${error.message}`, "N/A", "Extension Window");
     }
 }
 
@@ -1481,4 +1573,3 @@ function isSupportedUrl(url) {
 }
 
 //!SECTION - Utility Functions
-

@@ -22,17 +22,19 @@ self.addEventListener('activate', () => {
  */
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   console.log('[Background] Tab activated:', activeInfo.tabId);
+  try {
+    // Get saved activation times
+    const { tabActivationTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
 
-  // Get saved activation times
-  const { tabActivationTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
+    // Update time for current tab
+    tabActivationTimes[activeInfo.tabId] = Date.now();
 
-  // Update time for current tab
-  tabActivationTimes[activeInfo.tabId] = Date.now();
-
-  // Save updated data
-  await chrome.storage.local.set({
-    tabActivationTimes: tabActivationTimes
-  });
+    // Save updated data
+    await chrome.storage.local.set({ tabActivationTimes: tabActivationTimes });
+    console.log('[Background] Tab activation time saved for:', activeInfo.tabId);
+  } catch (error) {
+    console.error('[Background] Error updating tab activation time for tab', activeInfo.tabId, ':', error);
+  }
 });
 
 /**
@@ -42,18 +44,20 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
  */
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   console.log('[Background] Tab removed:', tabId);
+  try {
+    // Get saved data
+    const { tabActivationTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
 
-  // Get saved data
-  const { tabActivationTimes = {} } = await chrome.storage.local.get("tabActivationTimes");
+    // Remove data for this tab
+    if (tabActivationTimes[tabId]) {
+      delete tabActivationTimes[tabId];
 
-  // Remove data for this tab
-  if (tabActivationTimes[tabId]) {
-    delete tabActivationTimes[tabId];
-
-    // Save updated data
-    await chrome.storage.local.set({
-      tabActivationTimes: tabActivationTimes
-    });
+      // Save updated data
+      await chrome.storage.local.set({ tabActivationTimes: tabActivationTimes });
+      console.log('[Background] Tab activation time removed for:', tabId);
+    }
+  } catch (error) {
+    console.error('[Background] Error cleaning up tab data for tab', tabId, ':', error);
   }
 });
 
@@ -83,16 +87,29 @@ chrome.action.onClicked.addListener(async () => {
   try {
     // Check if the window exists
     if (windowId) {
-      const window = await chrome.windows.get(windowId).catch(() => null);
+      let window = null;
+      try {
+        window = await chrome.windows.get(windowId);
+      } catch (error) {
+        console.warn('[Background] Existing window with ID', windowId, 'not found or accessible, creating new. Error:', error);
+        windowId = null; // Reset windowId if not found
+      }
+
       if (window) {
         // If the window exists - bring it to the front
-        await chrome.windows.update(windowId, {
-          focused: true,
-          width: Math.max(window.width, MIN_WIDTH),
-          height: Math.max(window.height, MIN_HEIGHT),
-          state: 'normal'
-        });
-        return;
+        try {
+          await chrome.windows.update(windowId, {
+            focused: true,
+            width: Math.max(window.width, MIN_WIDTH),
+            height: Math.max(window.height, MIN_HEIGHT),
+            state: 'normal'
+          });
+          console.log('[Background] Existing window focused and resized.');
+          return;
+        } catch (updateError) {
+          console.error('[Background] Error updating existing window', windowId, ':', updateError);
+          windowId = null; // Reset if update fails
+        }
       }
     }
 
@@ -130,10 +147,15 @@ chrome.action.onClicked.addListener(async () => {
       if (changedWindow.id === windowId) {
         // Check if the width or height is less than the minimum
         if (changedWindow.width < MIN_WIDTH || changedWindow.height < MIN_HEIGHT) {
-          chrome.windows.update(windowId, {
-            width: Math.max(changedWindow.width, MIN_WIDTH),
-            height: Math.max(changedWindow.height, MIN_HEIGHT)
-          });
+          try {
+            chrome.windows.update(windowId, {
+              width: Math.max(changedWindow.width, MIN_WIDTH),
+              height: Math.max(changedWindow.height, MIN_HEIGHT)
+            });
+            console.log('[Background] Window resized to minimums.');
+          } catch (error) {
+            console.error('[Background] Error resizing window', windowId, ':', error);
+          }
         }
       }
     });

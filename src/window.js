@@ -19,14 +19,14 @@ const SUPPORTED_SITES = [
 const SUPPORTED_SITES_LINKS = {
     "Google Gemini": "https://gemini.google.com/app",
     "Google AI Studio": "https://aistudio.google.com/",
-    "ChatGPT": "https://chat.openai.com",
+    ChatGPT: "https://chat.openai.com",
     "Claude AI": "https://claude.ai/chat",
     "Anthropic Claude (Abacus)": "https://apps.abacus.ai/chat",
     "DeepSeek Chat": "https://chat.deepseek.com",
     "Hugging Face Chat": "https://huggingface.co/chat",
     "Perplexity AI": "https://perplexity.ai",
-    "Poe": "https://poe.com",
-    "Grok": "https://grok.com",
+    Poe: "https://poe.com",
+    Grok: "https://grok.com",
 };
 
 // Storage for latest tab activation times
@@ -45,6 +45,12 @@ let currentPanel = null;
 
 // Initialize the list of tabs
 let tabsListElement;
+
+// Global variables for error handling
+let errorQueue = [];
+let errorMessageContainer;
+let errorMessageText;
+let errorMessageCloseButton;
 
 /**
  * FUNC - Helper function for initializing tab data.
@@ -88,7 +94,8 @@ async function initializeTabData() {
 
         // Assign a very old timestamp (0) for tabs that don't have activation times. This ensures they appear at the end when sorting by most recent (desc)
         tabs.forEach((tab) => {
-            if (!(tab.id in tabActivationTimes)) { // Check if the key exists
+            if (!(tab.id in tabActivationTimes)) {
+                // Check if the key exists
                 tabActivationTimes[tab.id] = 0;
                 hasChanges = true;
             }
@@ -126,6 +133,41 @@ document.addEventListener("DOMContentLoaded", async function () {
     const inputText = document.getElementById("inputText");
     console.log("[Window Script]: Input text element:", inputText);
 
+    // Get error message elements
+    errorMessageContainer = document.getElementById("errorMessageContainer");
+    errorMessageText = errorMessageContainer.querySelector(
+        ".error-message-text"
+    );
+    errorMessageCloseButton = errorMessageContainer.querySelector(
+        ".error-message-close-button"
+    );
+
+    // Add event listener for the error message close button
+    errorMessageCloseButton.addEventListener("click", () => {
+        errorMessageContainer.classList.add("hidden"); // Hide current message
+        if (errorQueue.length > 0) {
+            errorQueue.shift(); // Remove current error from queue
+        }
+        displayNextError(); // Display next error if available
+    });
+
+    //NOTE - listener for copying error message to clipboard on click
+    errorMessageText.addEventListener("click", async () => {
+        const textToCopy = errorMessageText.textContent;
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            console.log(
+                "[Window Script]: Error message copied to clipboard:",
+                textToCopy
+            );
+        } catch (err) {
+            console.error(
+                "[Window Script]: Failed to copy error message:",
+                err
+            );
+        }
+    });
+
     //LISTENER - listener for Ctrl/Cmd + Enter to send message
     inputText.addEventListener("keydown", (event) => {
         // Check if Enter is pressed and Ctrl (Windows/Linux) or Meta (Mac/Chromebook) key is also pressed
@@ -146,7 +188,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (exportPromptsButton) {
         exportPromptsButton.addEventListener("click", async () => {
             console.log("[Window Script]: Export button clicked");
-            if (window.exportImport && typeof window.exportImport.exportSavedPrompts === 'function') {
+            if (
+                window.exportImport &&
+                typeof window.exportImport.exportSavedPrompts === "function"
+            ) {
                 const success = await window.exportImport.exportSavedPrompts();
                 if (success) {
                     // Visual feedback that export was successful
@@ -167,7 +212,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         importPromptsButton.addEventListener("click", async () => {
             console.log("[Window Script]: Import button clicked");
 
-            if (window.exportImport && typeof window.exportImport.importSavedPrompts === 'function') {
+            if (
+                window.exportImport &&
+                typeof window.exportImport.importSavedPrompts === "function"
+            ) {
                 // Disable button and change text while importing
                 importPromptsButton.disabled = true;
                 const originalText = importPromptsButton.textContent;
@@ -175,7 +223,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
                 try {
                     // Call the import function
-                    const result = await window.exportImport.importSavedPrompts();
+                    const result =
+                        await window.exportImport.importSavedPrompts();
                     console.log("[Window Script]: Import result:", result);
 
                     if (result.success) {
@@ -188,14 +237,19 @@ document.addEventListener("DOMContentLoaded", async function () {
                         }
                     } else if (result.userCancelled) {
                         // User cancelled the file selection, restore button immediately
-                        console.log("[Window Script]: User cancelled file selection");
+                        console.log(
+                            "[Window Script]: User cancelled file selection"
+                        );
                         importPromptsButton.textContent = originalText;
                         importPromptsButton.disabled = false;
                         return; // Exit early to skip the timeout
                     } else {
                         // Show error message
                         importPromptsButton.textContent = `Error: ${result.error}`;
-                        console.error("[Window Script]: Import error:", result.error);
+                        console.error(
+                            "[Window Script]: Import error:",
+                            result.error
+                        );
                     }
                 } catch (error) {
                     // Handle unexpected errors
@@ -210,7 +264,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 }, 3000);
             } else {
                 console.error("[Window Script]: Import function not available");
-                alert("Import functionality not available");
             }
         });
     }
@@ -343,10 +396,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                     await new Promise((resolve) => setTimeout(resolve, 500));
 
                     console.log(
-                    "[Window Script]: Successfully processed tab:",
-                    tab.id,
-                    tab.url
-                );
+                        "[Window Script]: Successfully processed tab:",
+                        tab.id,
+                        tab.url
+                    );
                 } catch (error) {
                     console.error(
                         `[Window Script]: Failed to process tab ${tabId}:`,
@@ -368,12 +421,14 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
 
     // Right panel buttons
+    const supportedSitesButton = document.getElementById(
+        "openSupportedSitesButton"
+    );
     const historyButton = document.getElementById("openHistoryButton");
     const savedPromptsButton = document.getElementById(
         "openSavedPromptsButton"
     );
     const settingsButton = document.getElementById("openSettingsButton");
-    const supportedSitesButton = document.getElementById("openSupportedSitesButton");
 
     supportedSitesButton.addEventListener("click", () =>
         toggleRightPanel("supportedSites", supportedSitesButton)
@@ -389,7 +444,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     );
 });
 
-//SECTION - Tabs functions and event listeners
+// !SECTION - Tabs in DOMContentLoaded event
+
+//SECTION - UI Panel Functions
+
+//SECTION - Main panel functions
 
 /**
  * LISTENER - Event listener for tab activation.
@@ -477,24 +536,20 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 });
 
 /**
- * FUNC - Function to display the list of tabs.
- * Displays and updates the list of open browser tabs in the extension's UI.
- * Filters out the extension's own window, merges selected tab states,
- * sorts tabs based on user settings, and renders them with checkboxes and favicons.
+ * FUNC - Function to set the tabs list.
+ * Retrieves all current tabs, filters out the extension's own window,
+ * cleans up stored selected tab data, sorts the tabs based on user settings,
+ * and dynamically creates/updates the tab list in the UI.
  */
 async function setTabsList() {
-    // Check if the tabs list element exists
-    if (!tabsListElement) {
-        tabsListElement = document.getElementById("tabsList");
-        if (!tabsListElement) {
-            console.error("[Window Script]: Tabs list element not found");
-            return;
-        }
-    }
-
     // Get current settings
-    const { areTabsRecentlyUpdated = false } = await chrome.storage.local.get("areTabsRecentlyUpdated");
-    console.log("[Window Script]: Tab activation order enabled:", areTabsRecentlyUpdated);
+    const { areTabsRecentlyUpdated = false } = await chrome.storage.local.get(
+        "areTabsRecentlyUpdated"
+    );
+    console.log(
+        "[Window Script]: Tab activation order enabled:",
+        areTabsRecentlyUpdated
+    );
 
     const tabs = await chrome.tabs.query({});
     const currentTabIds = new Set(tabs.map((tab) => tab.id));
@@ -504,7 +559,7 @@ async function setTabsList() {
     console.log("[Window Script]: Extension window URL:", extensionWindowUrl);
 
     // Filter out the extension's own window from the list of tabs
-    const filteredTabs = tabs.filter(tab => tab.url !== extensionWindowUrl);
+    const filteredTabs = tabs.filter((tab) => tab.url !== extensionWindowUrl);
 
     // Clean up selectedTabs storage
     const { selectedTabs = {} } = await chrome.storage.local.get(
@@ -520,8 +575,9 @@ async function setTabsList() {
 
     // Get current checkbox states from DOM before clearing
     const currentDomSelectedTabs = {};
-    const existingCheckboxes = tabsListElement.querySelectorAll('.tab-checkbox');
-    existingCheckboxes.forEach(checkbox => {
+    const existingCheckboxes =
+        tabsListElement.querySelectorAll(".tab-checkbox");
+    existingCheckboxes.forEach((checkbox) => {
         const tabId = Number(checkbox.dataset.tabId);
         if (checkbox.checked) {
             currentDomSelectedTabs[tabId] = true;
@@ -530,7 +586,10 @@ async function setTabsList() {
 
     // Merge stored selectedTabs with current DOM selectedTabs
     // DOM state takes precedence for currently displayed tabs
-    const mergedSelectedTabs = { ...cleanedSelectedTabs, ...currentDomSelectedTabs };
+    const mergedSelectedTabs = {
+        ...cleanedSelectedTabs,
+        ...currentDomSelectedTabs,
+    };
 
     await chrome.storage.local.set({ selectedTabs: mergedSelectedTabs });
 
@@ -574,12 +633,15 @@ async function setTabsList() {
 
         const favicon = document.createElement("img");
         favicon.className = "tab-favicon";
-        favicon.src = tab.favIconUrl || chrome.runtime.getURL("icons/globe.svg");
+        favicon.src =
+            tab.favIconUrl || chrome.runtime.getURL("icons/globe.svg");
         favicon.alt = `${tab.title} icon`;
 
         // Error handling for favicon
         favicon.onerror = () => {
-            console.log(`[Window Script]: Failed to load favicon for tab ${tab.id}. Using placeholder.`);
+            console.log(
+                `[Window Script]: Failed to load favicon for tab ${tab.id}. Using placeholder.`
+            );
             favicon.src = chrome.runtime.getURL("icons/globe.svg"); // Ensure placeholder is loaded correctly
         };
 
@@ -633,7 +695,9 @@ async function sortTabs(tabs) {
 
     if (areTabsRecentlyUpdated) {
         // Sort by activation time (most recent first)
-        console.log("[Window Script]: Sorting by activation time (most recent first).");
+        console.log(
+            "[Window Script]: Sorting by activation time (most recent first)."
+        );
         const activationTimes = tabActivationTimes || {};
 
         // Create a map for quick time lookup, defaulting to 0 if not found
@@ -648,12 +712,13 @@ async function sortTabs(tabs) {
             const timeA = tabTimeMap.get(a.id);
             const timeB = tabTimeMap.get(b.id);
             // Sort primarily by time descending, secondarily by ID descending for stability
-            return (timeB - timeA) || (b.id - a.id);
+            return timeB - timeA || b.id - a.id;
         });
-
     } else {
         // Sort by tab ID using the selected direction
-        console.log(`[Window Script]: Sorting by ID. Direction: ${sortDirection}`);
+        console.log(
+            `[Window Script]: Sorting by ID. Direction: ${sortDirection}`
+        );
         return [...tabs].sort((a, b) =>
             sortDirection === "desc" ? b.id - a.id : a.id - b.id
         );
@@ -707,14 +772,17 @@ async function processTab(tab) {
             console.log("[Window Script]: Response received:", response);
 
             if (!response?.success) {
+                const errorMessage =
+                    response?.error || "Unknown error occurred.";
                 console.error(
                     `[Window] Tab ${tab.id} failed processing:`,
-                    response.error
+                    errorMessage
                 );
+                displayErrorInUI(errorMessage, tab.url, tab.title);
             } else {
                 console.log(
                     "[Window Script]: Successfully processed tab:",
-                    tabId,
+                    tab.id,
                     tab.url
                 );
             }
@@ -728,11 +796,12 @@ async function processTab(tab) {
                     "[Window] Possible permission issue - Check host permissions in manifest"
                 );
             }
+            displayErrorInUI(error.message, tab.url, tab.title);
         }
     }
 }
 
-//!SECTION - Tabs functions and event listeners
+//!SECTION - Main panel functions
 
 //SECTION - Right panel functions
 
@@ -744,15 +813,16 @@ async function processTab(tab) {
  * @param {HTMLElement} button - The button element that triggered the toggle.
  */
 async function toggleRightPanel(panelType, button) {
-    const rightPanel = document.querySelector(".right-panel");
-    const sections = rightPanel.querySelectorAll('.panel-section');
+    const topContainer = document.querySelector(".top-container");
+    const rightPanel = document.getElementById("rightPanel");
+    const sections = rightPanel.querySelectorAll(".panel-section");
 
     // If the panel is already visible and the same button is clicked, hide the panel
     if (activeButton === button) {
-        rightPanel.classList.remove("visible");
+        topContainer.classList.remove("right-panel-active");
         button.classList.remove("active");
         // Hide all sections when panel is closed
-        sections.forEach(section => section.style.display = 'none');
+        sections.forEach((section) => (section.style.display = "none"));
         activeButton = null;
         currentPanel = null;
         return;
@@ -769,36 +839,38 @@ async function toggleRightPanel(panelType, button) {
     currentPanel = panelType;
 
     // Hide all sections first
-    sections.forEach(section => section.style.display = 'none');
+    sections.forEach((section) => (section.style.display = "none"));
 
     // Show the target section and load its content
     let targetSection;
     switch (panelType) {
         case "supportedSites":
-            targetSection = document.getElementById('supportedSitesSection');
+            targetSection = document.getElementById("supportedSitesSection");
             await setSupportedSitesPanel();
             break;
         case "history":
-            targetSection = document.getElementById('historySection');
+            targetSection = document.getElementById("historySection");
             await setHistoryPanel();
             break;
         case "saved":
-            targetSection = document.getElementById('savedPromptsSection');
+            targetSection = document.getElementById("savedPromptsSection");
             await setSavedPromptsPanel();
             break;
         case "settings":
-            targetSection = document.getElementById('settingsSection');
+            targetSection = document.getElementById("settingsSection");
             await setSettingsPanel();
             break;
     }
 
     if (targetSection) {
-        targetSection.style.display = 'block';
+        targetSection.style.display = "block";
     }
 
     // Ensure the main right panel is visible
-    rightPanel.classList.add("visible");
+    topContainer.classList.add("right-panel-active");
 }
+
+//SECTION - Supported Sites Functions
 
 /**
  * FUNC - Function to set the supported sites panel.
@@ -807,7 +879,9 @@ async function toggleRightPanel(panelType, button) {
  */
 async function setSupportedSitesPanel() {
     // Target the specific container for supported sites
-    const supportedSitesContainer = document.getElementById("supportedSitesContainer");
+    const supportedSitesContainer = document.getElementById(
+        "supportedSitesContainer"
+    );
     if (!supportedSitesContainer) {
         console.error("[Window Script]: Supported sites container not found!");
         return;
@@ -842,7 +916,9 @@ async function setSupportedSitesPanel() {
             favicon.onerror = () => {
                 // If favicon fails to load, use a generic icon
                 favicon.src = chrome.runtime.getURL("icons/globe.svg");
-                console.log(`[Window Script]: Failed to load favicon for ${domain}. Using placeholder.`);
+                console.log(
+                    `[Window Script]: Failed to load favicon for ${domain}. Using placeholder.`
+                );
             };
 
             const siteText = document.createElement("a");
@@ -860,14 +936,16 @@ async function setSupportedSitesPanel() {
     }
 }
 
+//!SECTION - Supported Sites Functions
+
+//SECTION - History Functions
+
 /**
  * FUNC - Function to set the history panel.
  * Populates the "History" panel with the user's past prompts.
  * Displays prompt text, timestamp, and provides a delete option.
  */
 async function setHistoryPanel() {
-    // if (currentPanel !== "history") return; // Keep this check if needed, but toggle ensures context
-
     // Target the specific container for history items
     const historyContainer = document.getElementById("historyContainer");
     if (!historyContainer) {
@@ -937,16 +1015,20 @@ async function setHistoryPanel() {
     }
 }
 
+//!SECTION - History Functions
+
+//SECTION - Saved Prompts Functions
+
 /**
  * FUNC - Function to set the saved prompts panel.
  * Populates the "Saved Prompts" panel with the user's saved prompts.
  * Displays prompt text, timestamp, and provides a delete option.
  */
 async function setSavedPromptsPanel() {
-    // if (currentPanel !== "saved") return;
-
     // Target the specific container for saved prompts
-    const savedPromptsContainer = document.getElementById("savedPromptsContainer");
+    const savedPromptsContainer = document.getElementById(
+        "savedPromptsContainer"
+    );
     if (!savedPromptsContainer) {
         console.error("[Window Script]: Saved prompts container not found!");
         return;
@@ -1017,20 +1099,30 @@ async function setSavedPromptsPanel() {
 // Expose the setSavedPromptsPanel function to window for use in the export-import module
 window.setSavedPromptsPanel = setSavedPromptsPanel;
 
+//!SECTION - Saved Prompts Functions
+
+//SECTION - Settings Functions
+
 /**
  * FUNC - Function to set the settings panel.
  * Initializes and manages the "Settings" panel.
  * Handles the checkbox for "Display tabs in activation order" and updates related UI elements.
+ * @returns {Promise<void>}
  */
 async function setSettingsPanel() {
     // Target the existing checkbox in HTML
-    const areTabsRecentlyActivatedCheckbox = document.getElementById("recentlyUpdatedCheckbox");
+    const areTabsRecentlyActivatedCheckbox = document.getElementById(
+        "recentlyUpdatedCheckbox"
+    );
 
     // Set up the event handler
     areTabsRecentlyActivatedCheckbox.addEventListener("change", async (e) => {
         const isEnabled = e.target.checked;
 
-        console.log("[Window Script]: Saving tab activation setting:", isEnabled);
+        console.log(
+            "[Window Script]: Saving tab activation setting:",
+            isEnabled
+        );
 
         // Update the setting in storage
         await chrome.storage.local.set({
@@ -1038,8 +1130,13 @@ async function setSettingsPanel() {
         });
 
         // Verify the setting was saved
-        const { areTabsRecentlyUpdated } = await chrome.storage.local.get("areTabsRecentlyUpdated");
-        console.log("[Window Script]: Verified saved setting:", areTabsRecentlyUpdated);
+        const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
+            "areTabsRecentlyUpdated"
+        );
+        console.log(
+            "[Window Script]: Verified saved setting:",
+            areTabsRecentlyUpdated
+        );
 
         console.log(
             "[Window Script]: Tab activation sorting changed to:",
@@ -1059,11 +1156,18 @@ async function setSettingsPanel() {
     const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
         "areTabsRecentlyUpdated"
     );
-    console.log("[Window Script]: Loading initial setting value:", areTabsRecentlyUpdated);
+    console.log(
+        "[Window Script]: Loading initial setting value:",
+        areTabsRecentlyUpdated
+    );
     areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
 }
 
+//!SECTION - Settings Functions
+
 //!SECTION - Right panel functions
+
+//SECTION - Bottom panel functions
 
 /**
  * FUNC - Function to save the prompt to history.
@@ -1092,7 +1196,9 @@ async function saveToHistory(text) {
 
     await chrome.storage.local.set({ requestHistory });
 
-    // LINK - Update the history panel if it is currently active using updateHistoryPanel function
+    /* Update the history panel if it is currently active using updateHistoryPanel function
+     *
+     */
     if (currentPanel === "history") {
         await setHistoryPanel();
     }
@@ -1117,11 +1223,56 @@ async function savePrompt(text) {
     savedPrompts.unshift(newPrompt);
     await chrome.storage.local.set({ savedPrompts });
 
-    // LINK - Update the saved prompts panel if it is currently active using updateSavedPromptsPanel function
+    // Update the saved prompts panel if it is currently active using updateSavedPromptsPanel function
     if (currentPanel === "saved") {
         await setSavedPromptsPanel();
     }
 }
+
+//SECTION - Error handling functions
+
+/**
+ * FUNC - Adds an error message to the queue and attempts to display it.
+ * @param {string} message - The error message.
+ * @param {string} url - The URL of the tab where the error occurred.
+ * @param {string} title - The title of the tab where the error occurred.
+ */
+function displayErrorInUI(message, url, title) {
+    // Format the message, URL will be truncated by CSS
+    const errorText = `Error on ${title} (${url}): ${message}`;
+    errorQueue.push(errorText);
+    console.log("[Window Script]: Error added to queue:", errorText);
+    if (
+        errorMessageContainer &&
+        errorMessageContainer.classList.contains("hidden")
+    ) {
+        displayNextError();
+    }
+}
+
+/**
+ * FUNC - Displays the next error from the queue.
+ * If the queue is empty, hides the error message container.
+ */
+function displayNextError() {
+    if (errorQueue.length > 0) {
+        const currentErrorText = errorQueue[0];
+        errorMessageText.textContent = currentErrorText; // Display the first error
+        errorMessageText.title = currentErrorText; // Set tooltip with full error text
+        errorMessageContainer.classList.remove("hidden"); // Make container visible
+        console.log("[Window Script]: Displaying error:", currentErrorText);
+    } else {
+        errorMessageText.textContent = ""; // Clear text when no errors
+        errorMessageText.title = ""; // Clear tooltip
+        errorMessageContainer.classList.add("hidden"); // If queue is empty, hide container
+        console.log("[Window Script]: Error queue is empty, hiding container.");
+    }
+}
+
+//!SECTION - Error handling functions
+//!SECTION - Bottom panel functions
+//!SECTION - UI Panel Functions
+//SECTION - Utility Functions
 
 /**
  * FUNC - Utility function to format the date.
@@ -1150,7 +1301,9 @@ function formatDate(isoString) {
 function isSupportedUrl(url) {
     try {
         // Check if the URL includes any of the supported site strings
-        return SUPPORTED_SITES.some(supportedSite => url.includes(supportedSite));
+        return SUPPORTED_SITES.some((supportedSite) =>
+            url.includes(supportedSite)
+        );
     } catch (e) {
         // Handle invalid URLs
         console.error("[Window Script]: Invalid URL:", url, e);
@@ -1159,7 +1312,7 @@ function isSupportedUrl(url) {
 }
 
 /**
- * Injects the content script into a tab if it's not already loaded
+ * FUNC - Injects the content script into a tab if it's not already loaded
  * This function prevents multiple injections of the same script,
  * which helps avoid variable redeclaration errors
  *
@@ -1199,9 +1352,26 @@ function injectContentScript(tabId) {
                                 "[Window Script]: Error injecting content script:",
                                 error
                             );
-                            reject(error);
+                            // Reject the promise so processTab can catch this error
+                            reject(
+                                new Error(
+                                    `Error: Failed to inject content script: ${error.message}`
+                                )
+                            );
                         });
                 }
+            })
+            .catch((error) => {
+                // Catch errors from checkIfContentScriptLoaded or initial executeScript call
+                console.error(
+                    "[Window Script]: Error checking content script status:",
+                    error
+                );
+                reject(
+                    new Error(
+                        `Error: Failed to check content script status: ${error.message}`
+                    )
+                );
             });
     });
 }
@@ -1219,15 +1389,16 @@ function injectContentScript(tabId) {
 function sendMessageWithTimeout(tabId, message, timeoutMs) {
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            reject(new Error(`Message to tab ${tabId} timed out after ${timeoutMs}ms`));
+            reject(new Error(`Error: Message to tab timed out.`));
         }, timeoutMs);
 
-        chrome.tabs.sendMessage(tabId, message)
-            .then(response => {
+        chrome.tabs
+            .sendMessage(tabId, message)
+            .then((response) => {
                 clearTimeout(timeout);
                 resolve(response);
             })
-            .catch(error => {
+            .catch((error) => {
                 clearTimeout(timeout);
                 reject(error);
             });
@@ -1244,3 +1415,5 @@ function sendMessageWithTimeout(tabId, message, timeoutMs) {
 function checkIfContentScriptLoaded() {
     return window.__contentScriptLoaded === true;
 }
+
+//!SECTION - Utility Functions

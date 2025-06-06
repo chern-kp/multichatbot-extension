@@ -49,7 +49,7 @@ if (window.__contentScriptLoaded) {
         console.log(
             "[content.js] Text field not found with any of the selectors."
         );
-        return null; // Return null if nothing is found
+        throw new Error("Error: Text field not found for current site.");
     }
 
     /**
@@ -150,7 +150,12 @@ if (window.__contentScriptLoaded) {
                 );
             } catch (e) {
                 console.error("[content.js] Error dispatching events:", e);
+                // Throw error if events cannot be dispatched
+                throw new Error(`Unexpected error: Failed to dispatch events for text field: ${e.message}`);
             }
+        } else {
+            // Throw error if text was not set successfully
+            throw new Error("Unexpected error: Failed to set text value for current site.");
         }
         return success;
     }
@@ -159,7 +164,8 @@ if (window.__contentScriptLoaded) {
      * FUNC - Step 3. Finds the first matching send button element from a list of CSS selectors.
      * @param {string[]} selectors - An array of CSS selectors to search for the send button.
      * @param {HTMLElement|null} [container=null] - The element within which to search. Defaults to the whole document.
-     * @returns {HTMLElement|null} The found send button element or null if not found.
+     * @returns {HTMLElement} The found send button element.
+     * @throws {Error} If the send button is not found with any of the provided selectors.
      */
     function findSendButtonElement(selectors, container = null) {
         console.log(
@@ -178,20 +184,16 @@ if (window.__contentScriptLoaded) {
             const element = searchContext.querySelector(selector);
             if (element) {
                 console.log(
-                    `[content.js] Send button found with selector: "${selector}" in`,
-                    searchContext === document
-                        ? "document"
-                        : "provided container",
+                    `[content.js] Text field found with selector: "${selector}"`,
                     element
                 );
-                return element;
+                return element; // Return the first found element
             }
         }
         console.log(
-            "[content.js] Send button not found with any of the selectors in",
-            searchContext === document ? "document" : "provided container"
+            "[content.js] Text field not found with any of the selectors."
         );
-        return null;
+        throw new Error("Error: Send button not found for current site.");
     }
 
     /**
@@ -206,6 +208,7 @@ if (window.__contentScriptLoaded) {
      * @param {number} [delayBeforeFindingButton=200] - Initial delay in milliseconds before starting to find the button.
      * @param {HTMLElement|null} [searchContainer=null] - The element within which to search for the button. Defaults to the whole document.
      * @returns {Promise<boolean>} A promise that resolves to true if the message was submitted, false otherwise.
+     * @throws {Error} If the message cannot be submitted after all attempts and fallbacks.
      */
     async function attemptSubmit(
         textFieldElement,
@@ -218,6 +221,7 @@ if (window.__contentScriptLoaded) {
     ) {
         let sendButton = null;
         let attempt = 0;
+        let buttonFoundAndActive = false;
 
         // 1. Add an initial delay before starting to find the button
         if (delayBeforeFindingButton > 0) {
@@ -227,25 +231,31 @@ if (window.__contentScriptLoaded) {
 
         // 2. Attempt to find the active send button
         while (attempt < maxAttempts) {
-            const foundElement = findSendButtonElement(
-                buttonSelectors,
-                searchContainer
-            );
-
-            // Check if the found element is an active button
-            if (
-                foundElement &&
-                foundElement.tagName.toLowerCase() === "button" &&
-                !foundElement.disabled
-            ) {
-                sendButton = foundElement; // Found an active button
-                console.log(
-                    `[content.js][attemptSubmit] Active send button found after ${
-                        attempt + 1
-                    } attempts.`,
-                    sendButton
+            try {
+                const foundElement = findSendButtonElement(
+                    buttonSelectors,
+                    searchContainer
                 );
-                break; // Button found and active, exit loop
+
+                // Check if the found element is an active button
+                if (
+                    foundElement &&
+                    foundElement.tagName.toLowerCase() === "button" &&
+                    !foundElement.disabled
+                ) {
+                    sendButton = foundElement; // Found an active button
+                    buttonFoundAndActive = true;
+                    console.log(
+                        `[content.js][attemptSubmit] Active send button found after ${
+                            attempt + 1
+                        } attempts.`,
+                        sendButton
+                    );
+                    break; // Button found and active, exit loop
+                }
+            } catch (error) {
+                // findSendButtonElement throws an error if not found, so we catch it here
+                console.log(`[content.js][attemptSubmit] findSendButtonElement failed: ${error.message}`);
             }
 
             console.log(
@@ -257,22 +267,25 @@ if (window.__contentScriptLoaded) {
             attempt++;
         }
 
-        // 3. Attempt to click the button if found
-        if (sendButton) {
-            const clicked = await clickSendButton(sendButton);
-            if (clicked) {
-                console.log(
-                    `[content.js][attemptSubmit] Message sent by clicking button.`
-                );
-                return true;
-            } else {
-                console.log(
-                    `[content.js][attemptSubmit] Clicking button failed.`
-                );
+        // 3. Attempt to click the button if found and active
+        if (buttonFoundAndActive && sendButton) {
+            try {
+                const clicked = await clickSendButton(sendButton);
+                if (clicked) {
+                    console.log(
+                        `[content.js][attemptSubmit] Message sent by clicking button.`
+                    );
+                    return true;
+                } else {
+        throw new Error("Unexpected error: Clicking send button failed unexpectedly.");
+                }
+            } catch (error) {
+                console.error(`[content.js][attemptSubmit] Error clicking button: ${error.message}`);
+                throw error;
             }
         } else {
             console.log(
-                `[content.js][attemptSubmit] Active send button not found after max attempts.`
+                `[content.js][attemptSubmit] Active send button not found or not active after max attempts.`
             );
         }
 
@@ -286,10 +299,8 @@ if (window.__contentScriptLoaded) {
             return true;
         }
 
-        console.error(
-            "[content.js][attemptSubmit] Failed to send message: No button clicked and Enter fallback disabled or failed."
-        );
-        return false;
+        // If neither button click nor Enter fallback succeeded, throw an error
+        throw new Error("Error: Failed to send message: No send button clicked and Enter fallback disabled or failed.");
     }
 
     //SECTION - Utility functions
@@ -317,58 +328,50 @@ if (window.__contentScriptLoaded) {
      * @param {HTMLElement} buttonElement - The button element to click.
      * @param {number} [waitTime=100] - The delay in milliseconds before attempting the click.
      * @returns {Promise<boolean>} A promise that resolves to true if the button was clicked successfully, false otherwise.
+     * @throws {Error} If the button is not clickable (not found, disabled, or not visible).
      */
     function clickSendButton(buttonElement, waitTime = 100) {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             setTimeout(() => {
                 console.log(
                     `[content.js] Attempting to click button element:`,
                     buttonElement
                 );
 
-                if (buttonElement && !buttonElement.disabled) {
-                    console.log(
-                        `[content.js] Button found, attempting to click`
+                if (!buttonElement) {
+                    reject(new Error("Unexpected error: No send button element provided or found."));
+                    return;
+                }
+
+                if (buttonElement.disabled) {
+                    reject(new Error("Error: Send button found but is disabled."));
+                    return;
+                }
+
+                // Try to check if the button is visible and clickable
+                const rect = buttonElement.getBoundingClientRect();
+                const isVisible = rect.width > 0 && rect.height > 0;
+
+                if (!isVisible) {
+                    reject(new Error("Error: Send button found but not visible."));
+                    return;
+                }
+
+                try {
+                    const clickEvent = new MouseEvent("click", {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                    });
+                    buttonElement.dispatchEvent(clickEvent);
+                    console.log(`[content.js] Button clicked successfully`);
+                    resolve(true);
+                } catch (error) {
+                    console.error(
+                        `[content.js] Error dispatching click event:`,
+                        error
                     );
-                    // Try to check if the button is visible and clickable
-                    const rect = buttonElement.getBoundingClientRect();
-                    const isVisible = rect.width > 0 && rect.height > 0;
-
-                    if (!isVisible) {
-                        console.log(
-                            `[content.js] Button found but not visible`
-                        );
-                        resolve(false);
-                        return;
-                    }
-
-                    try {
-                        const clickEvent = new MouseEvent("click", {
-                            bubbles: true,
-                            cancelable: true,
-                            view: window,
-                        });
-                        buttonElement.dispatchEvent(clickEvent);
-                        console.log(`[content.js] Button clicked successfully`);
-                        resolve(true);
-                    } catch (error) {
-                        console.error(
-                            `[content.js] Error clicking button:`,
-                            error
-                        );
-                        resolve(false);
-                    }
-                } else {
-                    if (!buttonElement) {
-                        console.log(
-                            `[content.js] No button element provided or found.`
-                        );
-                    } else if (buttonElement.disabled) {
-                        console.log(
-                            `[content.js] Button element found but is disabled`
-                        );
-                    }
-                    resolve(false);
+                    reject(new Error(`Unexpected error: Failed to dispatch click event for send button: ${error.message}`));
                 }
             }, waitTime);
         });
@@ -697,13 +700,13 @@ if (window.__contentScriptLoaded) {
 
         if (request.action !== "focusAndFill") {
             console.log("[content.js] Unknown action:", request.action);
-            sendResponse({ success: false, error: "Unknown action" });
+            sendResponse({ success: false, error: "Unexpected error: Unknown action received by content script." });
             return true;
         }
 
         if (!request.text) {
             console.log("[content.js] No text provided");
-            sendResponse({ success: false, error: "No text provided" });
+            sendResponse({ success: false, error: "Unexpected error: No text provided to content script." });
             return true;
         }
 
@@ -720,7 +723,7 @@ if (window.__contentScriptLoaded) {
             console.log("[content.js] Site not supported");
             sendResponse({
                 success: false,
-                error: "Site not supported",
+                error: "Error: Site not supported",
                 url: currentURL,
             });
             return true;
@@ -750,6 +753,7 @@ if (window.__contentScriptLoaded) {
                             success: false,
                             error: error.message,
                             stack: error.stack,
+                            errorName: error.name,
                         });
                     });
                 return true; // Indicate that the response will be asynchronous
@@ -763,6 +767,7 @@ if (window.__contentScriptLoaded) {
                 success: false,
                 error: error.message,
                 stack: error.stack,
+                errorName: error.name,
             });
         }
 

@@ -71,10 +71,15 @@ async function importSavedPrompts() {
             fileInput.accept = '.json';
             fileInput.style.display = 'none';
 
-            // Add event listener for when a file is selected
-            fileInput.addEventListener('change', async (event) => {
+            let fileSelected = false; // Flag to track if a file was selected or dialog was closed
+
+            const handleFileChange = async (event) => {
+                fileSelected = true; // Set flag as change event fired
+                fileInput.removeEventListener('change', handleFileChange); // Remove listener to prevent multiple calls
+                document.body.removeChild(fileInput); // Clean up immediately
+
                 if (!event.target.files || event.target.files.length === 0) {
-                    document.body.removeChild(fileInput);
+                    console.log("[Import] File selection cancelled by user (no file selected)");
                     resolve({ success: false, error: 'No file selected', userCancelled: true });
                     return;
                 }
@@ -152,45 +157,28 @@ async function importSavedPrompts() {
                 } catch (error) {
                     console.error("[Import] Error processing file:", error);
                     resolve({ success: false, error: error.message });
-                } finally {
-                    // Clean up the file input
-                    document.body.removeChild(fileInput);
                 }
-            });
+            };
+
+            // Add event listener for when a file is selected
+            fileInput.addEventListener('change', handleFileChange);
 
             // Add the file input to the DOM and trigger click
             document.body.appendChild(fileInput);
             fileInput.click();
 
-            // Add a click event listener to the window to detect if user clicks outside the file dialog
-            const windowClickHandler = () => {
-                // Check if input still exists and wasn't handled by the change event
-                if (document.body.contains(fileInput)) {
-                    // Set a timeout to check if a file was selected
-                    setTimeout(() => {
-                        if (document.body.contains(fileInput) && (!fileInput.files || fileInput.files.length === 0)) {
-                            document.body.removeChild(fileInput);
-                            console.log("[Import] File selection likely cancelled by user");
-                            resolve({ success: false, error: 'File selection cancelled', userCancelled: true });
-                            window.removeEventListener('click', windowClickHandler);
-                        }
-                    }, 500);
-                }
-            };
-
-            // Register the handler with a small delay to avoid immediate triggering
+            // Set a timeout as a fallback for cases when the dialog is closed without selection
+            // or the change event doesn't fire for some reason.
+            // A reasonable timeout, e.g., 60 seconds.
             setTimeout(() => {
-                window.addEventListener('click', windowClickHandler, { once: true });
-            }, 1000);
-
-            // Set a timeout as a fallback for cases when neither change event nor click events help
-            setTimeout(() => {
-                if (document.body.contains(fileInput)) {
-                    document.body.removeChild(fileInput);
-                    console.log("[Import] File selection timed out");
+                if (!fileSelected) { // If change event hasn't fired yet
+                    if (document.body.contains(fileInput)) {
+                        document.body.removeChild(fileInput);
+                    }
+                    console.log("[Import] File selection timed out or cancelled without change event");
                     resolve({ success: false, error: 'File selection timed out', userCancelled: true });
                 }
-            }, 300000); // 5 minute timeout
+            }, 60000); // 60 seconds timeout
 
         } catch (error) {
             console.error("[Import] Error setting up file input:", error);

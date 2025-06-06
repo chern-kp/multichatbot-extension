@@ -465,6 +465,7 @@ body {
     flex-grow: 1;
     padding: 0 10px 10px;
     overflow-y: auto;
+    max-height: calc(100% - 2.5rem - var(--spacing-sm));
 }
 
 #supportedSitesSection,
@@ -519,13 +520,8 @@ body {
 /* !SECTION Supported Sites List */
 
 /* SECTION History List */
-#historyContainer {
-}
-
 .history-container {
     padding: 10px;
-    max-height: calc(100svh - 9.375rem);
-    overflow-y: auto;
 }
 
 .history-item {
@@ -592,8 +588,6 @@ body {
 /* SECTION Saved Prompts List */
 .saved-prompts-container {
     padding: 10px;
-    max-height: calc(100vh - 9.375rem);
-    overflow-y: auto;
 }
 
 .saved-prompt-item {

@@ -1,5 +1,5 @@
 console.log("[Window Script]: Window script loaded");
-import './debug.js';
+import "./debug.js";
 
 //NOTE - List of supported sites
 const SUPPORTED_SITES = [
@@ -44,14 +44,552 @@ let sortDirection = "desc";
 let activeButton = null;
 let currentPanel = null;
 
-// Initialize the list of tabs
+// Global variable for storing tab list element
 let tabsListElement;
 
 // Global variables for error handling
 let errorQueue = [];
 let errorMessageContainer;
 let errorMessageText;
-let errorMessageCloseButton;
+
+/**
+ * FUNC - Handles the DOMContentLoaded event.
+ * Ensures that the DOM is fully loaded before interacting with it.
+ * Initializes UI elements, loads settings, event listeners for buttons,
+ * and updates the tabs list.
+ */
+async function handleDOMContentLoaded() {
+    console.log("[Window Script]: DOMContentLoaded event fired");
+
+    // 1. Initialize UI elements
+    const elements = await initializeUIElements();
+
+    // 2. Setup error handling listeners
+    errorMessageContainer = elements.errorMessageContainer;
+    errorMessageText = elements.errorMessageText;
+    errorMessageCloseButton = elements.errorMessageCloseButton;
+    setupErrorHandlingListeners(elements);
+
+    // 3. Setup input listeners
+    setupInputListeners(elements);
+
+    // 4. Setup data management listeners
+    setupDataManagementListeners(elements);
+
+    // 5. Setup tab list control listeners
+    setupTabListControlListeners(elements);
+
+    // 6. Setup send button listener
+    setupSendButtonListener(elements);
+
+    // 7. Setup right panel listeners
+    setupRightPanelListeners(elements);
+
+    // 8. Load and apply initial settings (includes setting up its own change listener)
+    await loadAndApplyInitialSettings(elements);
+
+    // 9. Initialize tab data and update the tabs list
+    await initializeTabData();
+    await setTabsList();
+
+    console.log("[Window Script]: DOMContentLoaded processing complete.");
+}
+
+// Attach the main handler to the DOMContentLoaded event
+document.addEventListener("DOMContentLoaded", handleDOMContentLoaded);
+
+/**
+ * FUNC - Listeners for input text field and save prompt button.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function setupInputListeners(elements) {
+    console.log("[Window Script]: Setting up input listeners.");
+
+    // Listener for Ctrl/Cmd + Enter to send message
+    elements.inputText.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault(); // Prevent default behavior (e.g., new line in textarea)
+            elements.sendButton.click(); // Programmatically click the send button
+        }
+    });
+
+    // Event listener to the save prompt button. When clicked, save the prompt to the storage.
+    elements.savePromptButton.addEventListener("click", async () => {
+        const text = elements.inputText.value.trim();
+        if (!text) return;
+        await savePrompt(text);
+    });
+    console.log("[Window Script]: Input listeners set up.");
+}
+
+/**
+ * FUNC - Event listeners for data management (export/import) buttons.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function setupDataManagementListeners(elements) {
+    console.log("[Window Script]: Setting up data management listeners.");
+
+    // Add event listener for export button
+    if (elements.exportPromptsButton) {
+        elements.exportPromptsButton.addEventListener("click", async () => {
+            console.log("[Window Script]: Export button clicked");
+            if (
+                window.exportImport &&
+                typeof window.exportImport.exportSavedPrompts === "function"
+            ) {
+                const success = await window.exportImport.exportSavedPrompts();
+                if (success) {
+                    // Visual feedback that export was successful
+                    const originalText =
+                        elements.exportPromptsButton.textContent;
+                    elements.exportPromptsButton.textContent = "Exported ✓";
+                    setTimeout(() => {
+                        elements.exportPromptsButton.textContent = originalText;
+                    }, 2000);
+                }
+            } else {
+                console.error("[Window Script]: Export function not available");
+            }
+        });
+    }
+
+    // Add event listener for import button
+    if (elements.importPromptsButton) {
+        elements.importPromptsButton.addEventListener("click", async () => {
+            console.log("[Window Script]: Import button clicked");
+
+            if (
+                window.exportImport &&
+                typeof window.exportImport.importSavedPrompts === "function"
+            ) {
+                // Disable button and change text while importing
+                elements.importPromptsButton.disabled = true;
+                const originalText = elements.importPromptsButton.textContent;
+                elements.importPromptsButton.textContent = "Importing...";
+
+                try {
+                    // Call the import function
+                    const result =
+                        await window.exportImport.importSavedPrompts();
+                    console.log("[Window Script]: Import result:", result);
+
+                    if (result.success) {
+                        // Show success message with counts
+                        elements.importPromptsButton.textContent = `Imported ${result.imported}/${result.total} ✓`;
+
+                        // If in saved prompts panel, refresh the display
+                        if (currentPanel === "saved") {
+                            await setSavedPromptsPanel();
+                        }
+                    } else if (result.userCancelled) {
+                        // User cancelled the file selection, restore button immediately
+                        console.log(
+                            "[Window Script]: User cancelled file selection"
+                        );
+                        elements.importPromptsButton.textContent = originalText;
+                        elements.importPromptsButton.disabled = false;
+                        return; // Exit early to skip the timeout
+                    } else {
+                        // Show error message
+                        elements.importPromptsButton.textContent = `Error: ${result.error}`;
+                        console.error(
+                            "[Window Script]: Import error:",
+                            result.error
+                        );
+                    }
+                } catch (error) {
+                    // Handle unexpected errors
+                    console.error("[Window Script]: Import failed:", error);
+                    elements.importPromptsButton.textContent = "Import Failed";
+                }
+
+                // Re-enable button and restore text after delay
+                setTimeout(() => {
+                    elements.importPromptsButton.disabled = false;
+                    elements.importPromptsButton.textContent = originalText;
+                }, 3000);
+            } else {
+                console.error("[Window Script]: Import function not available");
+            }
+        });
+    }
+    console.log("[Window Script]: Data management listeners set up.");
+}
+
+/**
+ * FUNC - Event listeners for tab list control buttons (sort and update).
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function setupTabListControlListeners(elements) {
+    console.log("[Window Script]: Setting up tab list control listeners.");
+
+    // Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
+    elements.sortButton.addEventListener("click", async () => {
+        console.log("[Window Script]: Sort button clicked");
+
+        // Change the sort direction after each click
+        elements.sortButton.classList.remove(sortDirection);
+        sortDirection = sortDirection === "desc" ? "asc" : "desc";
+        elements.sortButton.classList.add(sortDirection);
+
+        // Save the sort direction to storage
+        await chrome.storage.local.set({ savedSortDirection: sortDirection });
+
+        // Update the tabs list after changing the sort direction
+        await setTabsList();
+    });
+
+    // Update button functionality
+    elements.updateButton.addEventListener("click", async () => {
+        console.log("[Window Script]: Update button clicked");
+        await setTabsList();
+    });
+    console.log("[Window Script]: Tab list control listeners set up.");
+}
+
+/**
+ * FUNC - Sets up the event listener for the send button.
+ * Handles the click event for the send button, processing selected tabs.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function setupSendButtonListener(elements) {
+    console.log("[Window Script]: Setting up send button listener.");
+
+    elements.sendButton.addEventListener("click", async () => {
+        console.log("[Window Script]: Send button clicked");
+
+        // Disable button and show processing state
+        elements.sendButton.disabled = true;
+        const originalButtonText = elements.sendButton.textContent;
+        elements.sendButton.textContent = "Sending...";
+        elements.sendButton.classList.add("sending");
+        try {
+            const text = elements.inputText.value.trim();
+            if (!text) return;
+
+            await saveToHistory(text);
+
+            // Get current tabs and create a Set of valid tab IDs
+            const currentTabs = await chrome.tabs.query({});
+            const currentTabIds = new Set(currentTabs.map((tab) => tab.id));
+
+            // Get selected tabs and filter out invalid ones
+            const { selectedTabs = {} } = await chrome.storage.local.get(
+                "selectedTabs"
+            );
+            const validSelectedTabIds = Object.keys(selectedTabs)
+                .map(Number)
+                .filter((id) => currentTabIds.has(id));
+
+            console.log(
+                "[Window Script]: Processing valid tabs:",
+                validSelectedTabIds
+            );
+
+            // Clean up selectedTabs storage
+            const cleanedSelectedTabs = {};
+            validSelectedTabIds.forEach((id) => {
+                cleanedSelectedTabs[id] = true;
+            });
+            await chrome.storage.local.set({
+                selectedTabs: cleanedSelectedTabs,
+            });
+
+            // Process valid tabs
+            for (const tabId of validSelectedTabIds) {
+                try {
+                    let tab = null;
+                    try {
+                        tab = await chrome.tabs.get(tabId);
+                    } catch (getError) {
+                        console.warn(
+                            `[Window Script]: Tab ${tabId} no longer exists or cannot be accessed:`,
+                            getError
+                        );
+                        displayErrorInUI(
+                            `Tab ${tabId} no longer exists or cannot be accessed: ${getError.message}`,
+                            `chrome-extension://tab-id/${tabId}`,
+                            `Tab ${tabId}`
+                        );
+                        continue; // Skip to next tab
+                    }
+
+                    if (!tab) {
+                        console.warn(
+                            `[Window Script]: Tab ${tabId} no longer exists (after get check).`
+                        );
+                        displayErrorInUI(
+                            `Tab ${tabId} no longer exists.`,
+                            `chrome-extension://tab-id/${tabId}`,
+                            `Tab ${tabId}`
+                        );
+                        continue; // Skip to next tab
+                    }
+
+                    // Activate the tab
+                    try {
+                        await chrome.tabs.update(tabId, { active: true });
+                        // Get the updated tab object after activation
+                        tab = await chrome.tabs.get(tabId); // Re-fetch to get updated status/properties
+                    } catch (updateError) {
+                        console.error(
+                            `[Window Script]: Failed to activate or get updated tab ${tabId}:`,
+                            updateError
+                        );
+                        displayErrorInUI(
+                            `Failed to activate tab ${tabId}: ${updateError.message}`,
+                            tab.url,
+                            tab.title
+                        );
+                        continue; // Skip to next tab
+                    }
+
+                    await processTab(tab);
+
+                    // Add delay between tabs
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+
+                    console.log(
+                        "[Window Script]: Successfully processed tab:",
+                        tab.id,
+                        tab.url
+                    );
+                } catch (error) {
+                    console.error(
+                        `[Window Script]: Failed to process tab ${tabId}:`,
+                        error
+                    );
+                    displayErrorInUI(
+                        `Failed to process tab ${tabId}: ${error.message}`,
+                        `chrome-extension://tab-id/${tabId}`,
+                        `Tab ${tabId}`
+                    );
+                }
+            }
+        } catch (error) {
+            console.error(
+                "[Window Script]: Error in send button handler:",
+                error
+            );
+        } finally {
+            // Restore button state
+            elements.sendButton.disabled = false;
+            elements.sendButton.textContent = originalButtonText;
+            elements.sendButton.classList.remove("sending");
+        }
+    });
+    console.log("[Window Script]: Send button listener set up.");
+}
+
+/**
+ * FUNC - Event listeners for right panel toggle buttons.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function setupRightPanelListeners(elements) {
+    console.log("[Window Script]: Setting up right panel listeners.");
+
+    elements.supportedSitesButton.addEventListener("click", () =>
+        toggleRightPanel("supportedSites", elements.supportedSitesButton)
+    );
+    elements.historyButton.addEventListener("click", () =>
+        toggleRightPanel("history", elements.historyButton)
+    );
+    elements.savedPromptsButton.addEventListener("click", () =>
+        toggleRightPanel("saved", elements.savedPromptsButton)
+    );
+    elements.settingsButton.addEventListener("click", () =>
+        toggleRightPanel("settings", elements.settingsButton)
+    );
+    console.log("[Window Script]: Right panel listeners set up.");
+}
+
+/**
+ * FUNC - Loads initial settings from storage and applies them to the UI.
+ * Also sets up the change listener for the tab activation setting checkbox.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+async function loadAndApplyInitialSettings(elements) {
+    console.log("[Window Script]: Loading and applying initial settings.");
+
+    // Load settings
+    const { areTabsRecentlyUpdated = false, savedSortDirection = "desc" } =
+        await chrome.storage.local.get([
+            "areTabsRecentlyUpdated",
+            "savedSortDirection",
+        ]);
+
+    // Apply sort direction from storage
+    if (savedSortDirection) {
+        sortDirection = savedSortDirection;
+    }
+    elements.sortButton.classList.add(sortDirection);
+
+    // Disable sort button if "Display tabs in activation order" is enabled
+    if (areTabsRecentlyUpdated) {
+        console.log("[Window Script]: Tab activation order is enabled");
+        elements.sortButton.disabled = true;
+        elements.sortButton.classList.add("disabled");
+    } else {
+        console.log("[Window Script]: Using standard sorting");
+        elements.sortButton.disabled = false;
+        elements.sortButton.classList.remove("disabled");
+    }
+
+    // Display checkbox status from storage
+    elements.areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
+    console.log(
+        "[Window Script]: Initial setting value loaded:",
+        areTabsRecentlyUpdated
+    );
+
+    // Set up the event handler for the checkbox
+    elements.areTabsRecentlyActivatedCheckbox.addEventListener(
+        "change",
+        async (e) => {
+            const isEnabled = e.target.checked;
+
+            console.log(
+                "[Window Script]: Saving tab activation setting:",
+                isEnabled
+            );
+
+            try {
+                // Update the setting in storage
+                await chrome.storage.local.set({
+                    areTabsRecentlyUpdated: isEnabled,
+                });
+
+                // Verify the setting was saved
+                const { areTabsRecentlyUpdated: verifiedSetting } =
+                    await chrome.storage.local.get("areTabsRecentlyUpdated");
+                console.log(
+                    "[Window Script]: Verified saved setting:",
+                    verifiedSetting
+                );
+
+                console.log(
+                    "[Window Script]: Tab activation sorting changed to:",
+                    isEnabled
+                );
+
+                // Disable sort button if the checkbox is checked
+                elements.sortButton.disabled = isEnabled;
+                elements.sortButton.classList.toggle("disabled", isEnabled);
+
+                // After checkbox status change, update the tabs list
+                await setTabsList();
+            } catch (error) {
+                console.error(
+                    "[Window Script]: Error saving setting or updating tabs list:",
+                    error
+                );
+                displayErrorInUI(
+                    `Failed to save setting: ${error.message}`,
+                    "N/A",
+                    "Extension Window"
+                );
+            }
+        }
+    );
+    console.log("[Window Script]: Initial settings loaded and applied.");
+}
+
+/**
+ * FUNC - Event listeners for error message UI elements.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function setupErrorHandlingListeners(elements) {
+    console.log("[Window Script]: Setting up error handling listeners.");
+
+    // Add event listener for the error message close button
+    elements.errorMessageCloseButton.addEventListener("click", () => {
+        elements.errorMessageContainer.classList.add("hidden"); // Hide current message
+        if (errorQueue.length > 0) {
+            errorQueue.shift(); // Remove current error from queue
+        }
+        displayNextError(); // Display next error if available
+    });
+
+    // Listener for copying error message to clipboard on click
+    elements.errorMessageText.addEventListener("click", async () => {
+        const textToCopy = elements.errorMessageText.textContent;
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            console.log(
+                "[Window Script]: Error message copied to clipboard:",
+                textToCopy
+            );
+        } catch (err) {
+            console.error(
+                "[Window Script]: Failed to copy error message:",
+                err
+            );
+        }
+    });
+    console.log("[Window Script]: Error handling listeners set up.");
+}
+
+/**
+ * FUNC - Initializes and returns references to main UI elements.
+ * @returns {object} An object containing references to all necessary DOM elements.
+ */
+async function initializeUIElements() {
+    console.log("[Window Script]: Initializing UI elements.");
+
+    // Initialize tabsListElement
+    tabsListElement = document.getElementById("tabsList");
+
+    // Get references to all other elements
+    const sendButton = document.getElementById("sendButton");
+    const inputText = document.getElementById("inputText");
+    const errorMessageContainerElement = document.getElementById(
+        "errorMessageContainer"
+    );
+    const errorMessageTextElement = errorMessageContainerElement.querySelector(
+        ".error-message-text"
+    );
+    const errorMessageCloseButtonElement =
+        errorMessageContainerElement.querySelector(
+            ".error-message-close-button"
+        );
+    const savePromptButton = document.getElementById("savePromptButton");
+    const sortButton = document.querySelector(".sort-button");
+    const exportPromptsButton = document.getElementById("exportPromptsButton");
+    const importPromptsButton = document.getElementById("importPromptsButton");
+    const updateButton = document.getElementById("updateButton");
+    const supportedSitesButton = document.getElementById(
+        "openSupportedSitesButton"
+    );
+    const historyButton = document.getElementById("openHistoryButton");
+    const savedPromptsButton = document.getElementById(
+        "openSavedPromptsButton"
+    );
+    const settingsButton = document.getElementById("openSettingsButton");
+    const areTabsRecentlyActivatedCheckbox = document.getElementById(
+        "recentlyUpdatedCheckbox"
+    );
+
+    console.log("[Window Script]: UI elements initialized.");
+
+    return {
+        tabsListElement,
+        sendButton,
+        inputText,
+        errorMessageContainer: errorMessageContainerElement,
+        errorMessageText: errorMessageTextElement,
+        errorMessageCloseButton: errorMessageCloseButtonElement,
+        savePromptButton,
+        sortButton,
+        exportPromptsButton,
+        importPromptsButton,
+        updateButton,
+        supportedSitesButton,
+        historyButton,
+        savedPromptsButton,
+        settingsButton,
+        areTabsRecentlyActivatedCheckbox,
+    };
+}
 
 /**
  * FUNC - Helper function for initializing tab data.
@@ -93,7 +631,7 @@ async function initializeTabData() {
             }
         }
 
-        // Assign a very old timestamp (0) for tabs that don't have activation times. This ensures they appear at the end when sorting by most recent (desc)
+        // Assign a timestamp "0" for tabs that don't have activation times. This ensures they appear at the end when sorting by most recent (desc)
         tabs.forEach((tab) => {
             if (!(tab.id in tabActivationTimes)) {
                 // Check if the key exists
@@ -116,639 +654,18 @@ async function initializeTabData() {
     }
 }
 
-/**
- * LISTENER - Event listener for the DOMContentLoaded event.
- * Ensures that the DOM is fully loaded before interacting with it.
- * Initializes UI elements, loads settings, sets up event listeners for buttons,
- * and updates the tabs list.
- */
-document.addEventListener("DOMContentLoaded", async function () {
-    console.log("[Window Script]: DOMContentLoaded event fired");
-
-    tabsListElement = document.getElementById("tabsList");
-    console.log("[Window Script]: Tabs list element:", tabsListElement);
-
-    const sendButton = document.getElementById("sendButton");
-    console.log("[Window Script]: Send button element:", sendButton);
-
-    const inputText = document.getElementById("inputText");
-    console.log("[Window Script]: Input text element:", inputText);
-
-    // Get error message elements
-    errorMessageContainer = document.getElementById("errorMessageContainer");
-    errorMessageText = errorMessageContainer.querySelector(
-        ".error-message-text"
-    );
-    errorMessageCloseButton = errorMessageContainer.querySelector(
-        ".error-message-close-button"
-    );
-
-    // Add event listener for the error message close button
-    errorMessageCloseButton.addEventListener("click", () => {
-        errorMessageContainer.classList.add("hidden"); // Hide current message
-        if (errorQueue.length > 0) {
-            errorQueue.shift(); // Remove current error from queue
-        }
-        displayNextError(); // Display next error if available
-    });
-
-    //NOTE - listener for copying error message to clipboard on click
-    errorMessageText.addEventListener("click", async () => {
-        const textToCopy = errorMessageText.textContent;
-        try {
-            await navigator.clipboard.writeText(textToCopy);
-            console.log(
-                "[Window Script]: Error message copied to clipboard:",
-                textToCopy
-            );
-        } catch (err) {
-            console.error(
-                "[Window Script]: Failed to copy error message:",
-                err
-            );
-        }
-    });
-
-    //LISTENER - listener for Ctrl/Cmd + Enter to send message
-    inputText.addEventListener("keydown", (event) => {
-        // Check if Enter is pressed and Ctrl (Windows/Linux) or Meta (Mac/Chromebook) key is also pressed
-        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault(); // Prevent default behavior (e.g., new line in textarea)
-            sendButton.click(); // Programmatically click the send button
-        }
-    });
-
-    const savePromptButton = document.getElementById("savePromptButton");
-    const sortButton = document.querySelector(".sort-button");
-
-    // Data management buttons in settings
-    const exportPromptsButton = document.getElementById("exportPromptsButton");
-    const importPromptsButton = document.getElementById("importPromptsButton");
-
-    // Add event listener for export button
-    if (exportPromptsButton) {
-        exportPromptsButton.addEventListener("click", async () => {
-            console.log("[Window Script]: Export button clicked");
-            if (
-                window.exportImport &&
-                typeof window.exportImport.exportSavedPrompts === "function"
-            ) {
-                const success = await window.exportImport.exportSavedPrompts();
-                if (success) {
-                    // Visual feedback that export was successful
-                    const originalText = exportPromptsButton.textContent;
-                    exportPromptsButton.textContent = "Exported ✓";
-                    setTimeout(() => {
-                        exportPromptsButton.textContent = originalText;
-                    }, 2000);
-                }
-            } else {
-                console.error("[Window Script]: Export function not available");
-            }
-        });
-    }
-
-    // Add event listener for import button
-    if (importPromptsButton) {
-        importPromptsButton.addEventListener("click", async () => {
-            console.log("[Window Script]: Import button clicked");
-
-            if (
-                window.exportImport &&
-                typeof window.exportImport.importSavedPrompts === "function"
-            ) {
-                // Disable button and change text while importing
-                importPromptsButton.disabled = true;
-                const originalText = importPromptsButton.textContent;
-                importPromptsButton.textContent = "Importing...";
-
-                try {
-                    // Call the import function
-                    const result =
-                        await window.exportImport.importSavedPrompts();
-                    console.log("[Window Script]: Import result:", result);
-
-                    if (result.success) {
-                        // Show success message with counts
-                        importPromptsButton.textContent = `Imported ${result.imported}/${result.total} ✓`;
-
-                        // If in saved prompts panel, refresh the display
-                        if (currentPanel === "saved") {
-                            await setSavedPromptsPanel();
-                        }
-                    } else if (result.userCancelled) {
-                        // User cancelled the file selection, restore button immediately
-                        console.log(
-                            "[Window Script]: User cancelled file selection"
-                        );
-                        importPromptsButton.textContent = originalText;
-                        importPromptsButton.disabled = false;
-                        return; // Exit early to skip the timeout
-                    } else {
-                        // Show error message
-                        importPromptsButton.textContent = `Error: ${result.error}`;
-                        console.error(
-                            "[Window Script]: Import error:",
-                            result.error
-                        );
-                    }
-                } catch (error) {
-                    // Handle unexpected errors
-                    console.error("[Window Script]: Import failed:", error);
-                    importPromptsButton.textContent = "Import Failed";
-                }
-
-                // Re-enable button and restore text after delay
-                setTimeout(() => {
-                    importPromptsButton.disabled = false;
-                    importPromptsButton.textContent = originalText;
-                }, 3000);
-            } else {
-                console.error("[Window Script]: Import function not available");
-            }
-        });
-    }
-
-    //SECTION - Tab Processing
-
-    /**
-     * FUNC - Function to process the tab. This means injecting the content script and sending the text to each tab.
-     * Processes a single tab: activates it, injects the content script (if not already present),
-     * and sends the user's input text to the content script for interaction with the chatbot.
-     * @param {Tab} tab - The tab object to process.
-     */
-    async function processTab(tab) {
-        console.log(
-            "[Window Script]: processTab started for tab:",
-            tab.id,
-            tab.url
-        );
-
-        const url = tab.url;
-        console.log("[Window Script]: Processing tab:", tab.id, url);
-
-        // If the tab is not fully loaded (unloaded or still loading), reload it
-        if (tab.status !== "complete") {
-            console.log(
-                `[Window Script]: Tab ${tab.id} is not complete (${tab.status}). Reloading...`
-            );
-            try {
-                await chrome.tabs.reload(tab.id);
-                console.log(`[Window Script]: Tab ${tab.id} reload initiated.`);
-            } catch (error) {
-                console.error(`[Window Script]: Error reloading tab ${tab.id}:`, error);
-                displayErrorInUI(`Failed to reload tab ${tab.id}: ${error.message}`, tab.url, tab.title);
-                return; // Stop processing this tab if reload fails
-            }
-        }
-
-        // Ensure the tab is fully loaded before proceeding, whether it was reloaded or already loading
-        console.log(
-            `[Window Script]: Waiting for tab ${tab.id} to complete loading (after activation/reload).`
-        );
-        await waitForTabLoad(tab.id);
-        console.log(`[Window Script]: Tab ${tab.id} loaded completely.`);
-
-        //NOTE - Check if the URL is supported
-        if (SUPPORTED_SITES.some((site) => url.includes(site))) {
-            console.log("[Window Script]: Supported site detected");
-
-            try {
-                // Add a small delay for stability after load (after initial load or reload)
-                await new Promise((resolve) => setTimeout(resolve, 200));
-                console.log(
-                    `[Window Script]: Added 200ms delay for tab ${tab.id}.`
-                );
-
-                // Inject the content script into currently active tab using code from content.js
-                console.log(
-                    `[Window Script]: Injecting content script to tab ${tab.id} (${tab.url})`
-                );
-                await injectContentScript(tab.id);
-
-                const text = document.getElementById("inputText").value;
-                console.log("[Window Script]: Text to send:", text);
-
-                // LINK - Send a message to the content script to focus and fill the input field
-                console.debug(`[Window] Sending message to tab ${tab.id}`);
-                const response = await sendMessageWithTimeout(
-                    tab.id,
-                    {
-                        action: "focusAndFill", // We created action focusAndFill, which is recieved in content.js
-                        text: text,
-                    },
-                    5000
-                );
-                console.log("[Window Script]: Response received:", response);
-
-                if (!response?.success) {
-                    const errorMessage =
-                        response?.error || "Unknown error occurred.";
-                    console.error(
-                        `[Window] Tab ${tab.id} failed processing:`,
-                        errorMessage
-                    );
-                    displayErrorInUI(errorMessage, tab.url, tab.title);
-                } else {
-                    console.log(
-                        "[Window Script]: Successfully processed tab:",
-                        tab.id,
-                        tab.url
-                    );
-                }
-            } catch (error) {
-                console.error(
-                    `[Window] Critical error processing tab ${tab.id}:`,
-                    error
-                );
-                if (error.message.includes("Cannot access contents")) {
-                    console.warn(
-                        "[Window] Possible permission issue - Check host permissions in manifest"
-                    );
-                }
-                displayErrorInUI(error.message, tab.url, tab.title);
-            }
-        }
-    }
-
-    /**
-     * FUNC - Waits for a specific tab to fully load (status "complete").
-     * This function listens for tab updates and resolves when the target tab's status
-     * becomes "complete". It also checks the current status in case the tab is already loaded.
-     *
-     * @param {number} tabId - The ID of the tab to wait for.
-     * @returns {Promise<void>} A promise that resolves when the tab is fully loaded.
-     */
-    async function waitForTabLoad(tabId) {
-        return new Promise((resolve) => {
-            const listener = (updatedTabId, changeInfo, tab) => {
-                if (
-                    updatedTabId === tabId &&
-                    changeInfo.status === "complete"
-                ) {
-                    console.log(
-                        `[Window Script]: Tab ${tabId} status is complete.`
-                    );
-                    chrome.tabs.onUpdated.removeListener(listener); // Remove listener to avoid memory leaks
-                    resolve();
-                }
-            };
-            chrome.tabs.onUpdated.addListener(listener);
-
-            // Check current status in case it's already complete
-            try {
-                chrome.tabs.get(tabId, (tab) => {
-                    if (chrome.runtime.lastError) {
-                        const errorMessage = chrome.runtime.lastError.message;
-                        console.warn(`[Window Script]: Error getting tab ${tabId} in waitForTabLoad:`, errorMessage);
-                        displayErrorInUI(`Failed to get tab ${tabId} in waitForTabLoad: ${errorMessage}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
-                        // Resolve anyway, as the tab might have been closed, and we don't want to hang
-                        try {
-                            chrome.tabs.onUpdated.removeListener(listener);
-                        } catch (error) {
-                            console.warn(`[Window Script]: Error removing tab update listener after get error for tab ${tabId}:`, error);
-                        }
-                        resolve();
-                        return;
-                    }
-                    if (tab && tab.status === "complete") {
-                        console.log(
-                            `[Window Script]: Tab ${tabId} is already complete.`
-                        );
-                        try {
-                            chrome.tabs.onUpdated.removeListener(listener);
-                        } catch (error) {
-                            console.warn(`[Window Script]: Error removing tab update listener for tab ${tabId}:`, error);
-                        }
-                        resolve();
-                    }
-                });
-            } catch (error) {
-                console.warn(`[Window Script]: Unexpected error in chrome.tabs.get for tab ${tabId}:`, error);
-                displayErrorInUI(`Unexpected error getting tab ${tabId} in waitForTabLoad: ${error.message}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
-                // Resolve to prevent hanging if an unexpected error occurs
-                resolve();
-            }
-        });
-    }
-
-    /**
-     * FUNC - Injects the content script into a tab if it's not already loaded
-     * This function prevents multiple injections of the same script,
-     * which helps avoid variable redeclaration errors
-     *
-     * @param {number} tabId - The ID of the tab to inject the script into
-     * @returns {Promise} A promise that resolves when the script is injected or already loaded
-     */
-    function injectContentScript(tabId) {
-        return new Promise((resolve, reject) => {
-            // First, check if our content script is already loaded in the tab
-            chrome.scripting
-                .executeScript({
-                    target: { tabId: tabId },
-                    function: checkIfContentScriptLoaded,
-                })
-                .then((result) => {
-                    // If the script is already loaded (indicated by the global marker)
-                    if (result[0].result === true) {
-                        console.log(
-                            "[Window Script]: Content script already loaded"
-                        );
-                        resolve();
-                    } else {
-                        // If the script is not loaded yet, inject it into the tab
-                        chrome.scripting
-                            .executeScript({
-                                target: { tabId: tabId },
-                                files: ["src/content.js"],
-                            })
-                            .then(() => {
-                                console.log(
-                                    "[Window Script]: Content script injected successfully"
-                                );
-                                resolve();
-                            })
-                            .catch((error) => {
-                                console.error(
-                                    "[Window Script]: Error injecting content script:",
-                                    error
-                                );
-                                // Reject the promise so processTab can catch this error
-                                reject(
-                                    new Error(
-                                        `Error: Failed to inject content script: ${error.message}`
-                                    )
-                                );
-                            });
-                    }
-                })
-                .catch((error) => {
-                    // Catch errors from checkIfContentScriptLoaded or initial executeScript call
-                    console.error(
-                        "[Window Script]: Error checking content script status:",
-                        error
-                    );
-                    reject(
-                        new Error(
-                            `Error: Failed to check content script status: ${error.message}`
-                        )
-                    );
-                });
-        });
-    }
-
-    /**
-     * FUNC - Sends a message to a content script with a timeout.
-     * If the content script does not respond within the specified timeout,
-     * the promise will reject with a timeout error.
-     *
-     * @param {number} tabId - The ID of the tab to send the message to.
-     * @param {object} message - The message object to send.
-     * @param {number} timeoutMs - The timeout in milliseconds.
-     * @returns {Promise<any>} A promise that resolves with the response from the content script, or rejects on timeout or error.
-     */
-    function sendMessageWithTimeout(tabId, message, timeoutMs) {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error(`Error: Message to tab timed out.`));
-            }, timeoutMs);
-
-            chrome.tabs
-                .sendMessage(tabId, message)
-                .then((response) => {
-                    clearTimeout(timeout);
-                    resolve(response);
-                })
-                .catch((error) => {
-                    clearTimeout(timeout);
-                    reject(error);
-                });
-        });
-    }
-
-    /**
-     * FUNC - Checks if the content script has been loaded in a page
-     * This function runs in the context of the target tab and checks for
-     * the global marker we set when the script initializes
-     *
-     * @returns {boolean} True if the content script has already been loaded
-     */
-    function checkIfContentScriptLoaded() {
-        return window.__contentScriptLoaded === true;
-    }
-
-    //!SECTION - Tab Processing
-
-    // SECTION - Tabs in DOMContentLoaded event
-
-    // Load settings and initialize tab data
-    const { areTabsRecentlyUpdated = false, savedSortDirection = "desc" } =
-        await chrome.storage.local.get([
-            "areTabsRecentlyUpdated",
-            "savedSortDirection",
-        ]);
-
-    // Apply sort direction from storage
-    if (savedSortDirection) {
-        sortDirection = savedSortDirection;
-    }
-    sortButton.classList.add(sortDirection);
-
-    // Initialize tab data regardless of the setting
-    await initializeTabData();
-
-    // Disable sort button if "Display tabs in activation order" is enabled
-    if (areTabsRecentlyUpdated) {
-        console.log("[Window Script]: Tab activation order is enabled");
-        sortButton.disabled = true;
-        sortButton.classList.add("disabled");
-    } else {
-        console.log("[Window Script]: Using standard sorting");
-        sortButton.disabled = false;
-        sortButton.classList.remove("disabled");
-    }
-
-    // Add event listener to the sort button. When clicked, change the sort direction and update the tabs list.
-    sortButton.addEventListener("click", async () => {
-        console.log("[Window Script]: Sort button clicked");
-
-        // Change the sort direction after each click
-        sortButton.classList.remove(sortDirection);
-        sortDirection = sortDirection === "desc" ? "asc" : "desc";
-        sortButton.classList.add(sortDirection);
-
-        // Save the sort direction to storage
-        await chrome.storage.local.set({ savedSortDirection: sortDirection });
-
-        // Update the tabs list after changing the sort direction
-        await setTabsList();
-    });
-
-    // Update the tabs list when the window is loaded
-    await setTabsList();
-
-    // Update button functionality
-    const updateButton = document.getElementById("updateButton");
-    updateButton.addEventListener("click", async () => {
-        console.log("[Window Script]: Update button clicked");
-        await setTabsList();
-    });
-
-    // Add event listener to the save prompt button. When clicked, save the prompt to the storage.
-    savePromptButton.addEventListener("click", async () => {
-        const text = document.getElementById("inputText").value.trim();
-        if (!text) return;
-
-        await savePrompt(text);
-    });
-
-    /**
-     * FUNC - Send button functionality. When clicked, send the text to the selected tabs.
-     * Handles the click event for the send button.
-     * Disables the button, saves the input text to history,
-     * processes selected tabs by activating them and sending the text,
-     * and finally restores the button state.
-     */
-    sendButton.addEventListener("click", async () => {
-        console.log("[Window Script]: Send button clicked");
-
-        // Disable button and show processing state
-        sendButton.disabled = true;
-        const originalButtonText = sendButton.textContent;
-        sendButton.textContent = "Sending...";
-        sendButton.classList.add("sending");
-        try {
-            const text = document.getElementById("inputText").value.trim();
-            if (!text) return;
-
-            await saveToHistory(text);
-
-            // Get current tabs and create a Set of valid tab IDs
-            const currentTabs = await chrome.tabs.query({});
-            const currentTabIds = new Set(currentTabs.map((tab) => tab.id));
-
-            // Get selected tabs and filter out invalid ones
-            const { selectedTabs = {} } = await chrome.storage.local.get(
-                "selectedTabs"
-            );
-            const validSelectedTabIds = Object.keys(selectedTabs)
-                .map(Number)
-                .filter((id) => currentTabIds.has(id));
-
-            console.log(
-                "[Window Script]: Processing valid tabs:",
-                validSelectedTabIds
-            );
-
-            // Clean up selectedTabs storage
-            const cleanedSelectedTabs = {};
-            validSelectedTabIds.forEach((id) => {
-                cleanedSelectedTabs[id] = true;
-            });
-            await chrome.storage.local.set({
-                selectedTabs: cleanedSelectedTabs,
-            });
-
-            // Process valid tabs
-            for (const tabId of validSelectedTabIds) {
-                try {
-                    let tab = null;
-                    try {
-                        tab = await chrome.tabs.get(tabId);
-                    } catch (getError) {
-                        console.warn(`[Window Script]: Tab ${tabId} no longer exists or cannot be accessed:`, getError);
-                        displayErrorInUI(`Tab ${tabId} no longer exists or cannot be accessed: ${getError.message}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
-                        continue; // Skip to next tab
-                    }
-
-                    if (!tab) {
-                        console.warn(`[Window Script]: Tab ${tabId} no longer exists (after get check).`);
-                        displayErrorInUI(`Tab ${tabId} no longer exists.`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
-                        continue; // Skip to next tab
-                    }
-
-                    // Activate the tab
-                    try {
-                        await chrome.tabs.update(tabId, { active: true });
-                        // Get the updated tab object after activation
-                        tab = await chrome.tabs.get(tabId); // Re-fetch to get updated status/properties
-                    } catch (updateError) {
-                        console.error(`[Window Script]: Failed to activate or get updated tab ${tabId}:`, updateError);
-                        displayErrorInUI(`Failed to activate tab ${tabId}: ${updateError.message}`, tab.url, tab.title);
-                        continue; // Skip to next tab
-                    }
-
-                    await processTab(tab);
-
-                    // Add delay between tabs
-                    await new Promise((resolve) => setTimeout(resolve, 500));
-
-                    console.log(
-                        "[Window Script]: Successfully processed tab:",
-                        tab.id,
-                        tab.url
-                    );
-                } catch (error) {
-                    console.error(
-                        `[Window Script]: Failed to process tab ${tabId}:`,
-                        error
-                    );
-                    // displayErrorInUI is already called inside processTab for specific errors
-                    // This catch is for errors that might occur outside processTab but within the loop
-                    displayErrorInUI(`Failed to process tab ${tabId}: ${error.message}`, `chrome-extension://tab-id/${tabId}`, `Tab ${tabId}`);
-                }
-            }
-        } catch (error) {
-            console.error(
-                "[Window Script]: Error in send button handler:",
-                error
-            );
-        } finally {
-            // Restore button state
-            sendButton.disabled = false;
-            sendButton.textContent = originalButtonText;
-            sendButton.classList.remove("sending");
-        }
-    });
-
-    // Right panel buttons
-    const supportedSitesButton = document.getElementById(
-        "openSupportedSitesButton"
-    );
-    const historyButton = document.getElementById("openHistoryButton");
-    const savedPromptsButton = document.getElementById(
-        "openSavedPromptsButton"
-    );
-    const settingsButton = document.getElementById("openSettingsButton");
-
-    supportedSitesButton.addEventListener("click", () =>
-        toggleRightPanel("supportedSites", supportedSitesButton)
-    );
-    historyButton.addEventListener("click", () =>
-        toggleRightPanel("history", historyButton)
-    );
-    savedPromptsButton.addEventListener("click", () =>
-        toggleRightPanel("saved", savedPromptsButton)
-    );
-    settingsButton.addEventListener("click", () =>
-        toggleRightPanel("settings", settingsButton)
-    );
-});
-
-// !SECTION - Tabs in DOMContentLoaded event
-
 //SECTION - UI Panel Functions
 
 //SECTION - Main panel functions
 
 /**
- * LISTENER - Event listener for tab activation.
+ * FUNC - Handles tab activation events.
  * Updates the activation timestamp for the newly active tab in local storage
  * and refreshes the displayed tabs list.
  * @param {object} activeInfo - Information about the tab that was activated.
  * @param {number} activeInfo.tabId - The ID of the tab that became active.
  */
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
+async function handleTabActivatedChromeAPI(activeInfo) {
     console.log("[Window Script]: Tab activated:", activeInfo.tabId);
     try {
         // Get current data
@@ -767,32 +684,50 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         // Refresh the tabs list on tab activation
         await setTabsList();
     } catch (error) {
-        console.error("[Window Script]: Error in tab activation listener:", error);
-        displayErrorInUI(`Failed to update tab activation data: ${error.message}`, "N/A", "Extension Window");
+        console.error(
+            "[Window Script]: Error in tab activation listener:",
+            error
+        );
+        displayErrorInUI(
+            `Failed to update tab activation data: ${error.message}`,
+            "N/A",
+            "Extension Window"
+        );
     }
-});
+}
+
+chrome.tabs.onActivated.addListener(handleTabActivatedChromeAPI);
 
 /**
- * LISTENER - Event listener for tab creation.
+ * FUNC - Handles tab creation events.
  * Refreshes the displayed tabs list when a new tab is created.
  */
-chrome.tabs.onCreated.addListener(async () => {
+async function handleTabCreatedChromeAPI() {
     console.log("[Window Script]: Tab created");
     try {
         await setTabsList();
     } catch (error) {
-        console.error("[Window Script]: Error in tab creation listener:", error);
-        displayErrorInUI(`Failed to update tabs list on tab creation: ${error.message}`, "N/A", "Extension Window");
+        console.error(
+            "[Window Script]: Error in tab creation listener:",
+            error
+        );
+        displayErrorInUI(
+            `Failed to update tabs list on tab creation: ${error.message}`,
+            "N/A",
+            "Extension Window"
+        );
     }
-});
+}
+
+chrome.tabs.onCreated.addListener(handleTabCreatedChromeAPI);
 
 /**
- * LISTENER - Event listener for tab removal.
+ * FUNC - Handles tab removal events.
  * Cleans up stored data (selected tabs, activation times) for the removed tab
  * and refreshes the displayed tabs list.
  * @param {number} tabId - The ID of the tab that was removed.
  */
-chrome.tabs.onRemoved.addListener(async (tabId) => {
+async function handleTabRemovedChromeAPI(tabId) {
     console.log("[Window Script]: Tab removed:", tabId);
     try {
         // Clean up selectedTabs
@@ -818,12 +753,18 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
         await setTabsList();
     } catch (error) {
         console.error("[Window Script]: Error in tab removal listener:", error);
-        displayErrorInUI(`Failed to clean up tab data: ${error.message}`, "N/A", "Extension Window");
+        displayErrorInUI(
+            `Failed to clean up tab data: ${error.message}`,
+            "N/A",
+            "Extension Window"
+        );
     }
-});
+}
+
+chrome.tabs.onRemoved.addListener(handleTabRemovedChromeAPI);
 
 /**
- * LISTENER - Event listener for tab updates (e.g., URL changes, loading status).
+ * FUNC - Handles tab update events (e.g., URL changes, loading status).
  * Refreshes the displayed tabs list when a tab's status becomes "complete" or its URL changes.
  * @param {number} tabId - The ID of the tab that was updated.
  * @param {object} changeInfo - An object containing details about the changes to the tab.
@@ -831,18 +772,27 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
  * @param {string} [changeInfo.url] - The tab's new URL.
  * @param {Tab} tab - The updated tab object.
  */
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+async function handleTabUpdatedChromeAPI(tabId, changeInfo, tab) {
     // Only update when the tab is fully loaded or URL changes
     if (changeInfo.status === "complete" || changeInfo.url) {
         console.log("[Window Script]: Tab updated:", tabId);
         try {
             await setTabsList();
         } catch (error) {
-            console.error("[Window Script]: Error in tab update listener:", error);
-            displayErrorInUI(`Failed to update tabs list on tab update: ${error.message}`, tab.url, tab.title);
+            console.error(
+                "[Window Script]: Error in tab update listener:",
+                error
+            );
+            displayErrorInUI(
+                `Failed to update tabs list on tab update: ${error.message}`,
+                tab.url,
+                tab.title
+            );
         }
     }
-});
+}
+
+chrome.tabs.onUpdated.addListener(handleTabUpdatedChromeAPI);
 
 /**
  * FUNC - Function to set the tabs list.
@@ -853,9 +803,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 async function setTabsList() {
     try {
         // Get current settings
-        const { areTabsRecentlyUpdated = false } = await chrome.storage.local.get(
-            "areTabsRecentlyUpdated"
-        );
+        const { areTabsRecentlyUpdated = false } =
+            await chrome.storage.local.get("areTabsRecentlyUpdated");
         console.log(
             "[Window Script]: Tab activation order enabled:",
             areTabsRecentlyUpdated
@@ -866,10 +815,15 @@ async function setTabsList() {
 
         // Get the URL of the extension's window
         const extensionWindowUrl = chrome.runtime.getURL("src/window.html");
-        console.log("[Window Script]: Extension window URL:", extensionWindowUrl);
+        console.log(
+            "[Window Script]: Extension window URL:",
+            extensionWindowUrl
+        );
 
         // Filter out the extension's own window from the list of tabs
-        const filteredTabs = tabs.filter((tab) => tab.url !== extensionWindowUrl);
+        const filteredTabs = tabs.filter(
+            (tab) => tab.url !== extensionWindowUrl
+        );
 
         // Clean up selectedTabs storage
         const { selectedTabs = {} } = await chrome.storage.local.get(
@@ -911,7 +865,6 @@ async function setTabsList() {
 
         // Create tab items
         sortedTabs.forEach((tab) => {
-
             const tabItem = document.createElement("div");
             tabItem.className = "tab-item";
 
@@ -922,7 +875,8 @@ async function setTabsList() {
             checkbox.type = "checkbox";
             checkbox.className = "tab-checkbox";
             // Use the merged state for setting the checkbox's checked status
-            checkbox.checked = isSupported && (mergedSelectedTabs[tab.id] || false);
+            checkbox.checked =
+                isSupported && (mergedSelectedTabs[tab.id] || false);
             checkbox.dataset.tabId = tab.id;
             checkbox.disabled = !isSupported;
 
@@ -973,9 +927,8 @@ async function setTabsList() {
 
                     // Update storage based on the new checkbox state
                     try {
-                        const { selectedTabs = {} } = await chrome.storage.local.get(
-                            "selectedTabs"
-                        );
+                        const { selectedTabs = {} } =
+                            await chrome.storage.local.get("selectedTabs");
                         if (checkbox.checked) {
                             selectedTabs[tab.id] = true;
                         } else {
@@ -983,15 +936,26 @@ async function setTabsList() {
                         }
                         await chrome.storage.local.set({ selectedTabs });
                     } catch (error) {
-                        console.error(`[Window Script]: Error updating selected tabs for tab ${tab.id}:`, error);
-                        displayErrorInUI(`Failed to update selected tab state for ${tab.title}: ${error.message}`, tab.url, tab.title);
+                        console.error(
+                            `[Window Script]: Error updating selected tabs for tab ${tab.id}:`,
+                            error
+                        );
+                        displayErrorInUI(
+                            `Failed to update selected tab state for ${tab.title}: ${error.message}`,
+                            tab.url,
+                            tab.title
+                        );
                     }
                 });
             }
         });
     } catch (error) {
         console.error("[Window Script]: Error in setTabsList:", error);
-        displayErrorInUI(`Failed to update tabs list: ${error.message}`, "N/A", "Extension Window");
+        displayErrorInUI(
+            `Failed to update tabs list: ${error.message}`,
+            "N/A",
+            "Extension Window"
+        );
     }
 }
 
@@ -1395,8 +1359,15 @@ async function setSettingsPanel() {
             // After checkbox status change, update the tabs list
             await setTabsList();
         } catch (error) {
-            console.error("[Window Script]: Error saving setting or updating tabs list:", error);
-            displayErrorInUI(`Failed to save setting: ${error.message}`, "N/A", "Extension Window");
+            console.error(
+                "[Window Script]: Error saving setting or updating tabs list:",
+                error
+            );
+            displayErrorInUI(
+                `Failed to save setting: ${error.message}`,
+                "N/A",
+                "Extension Window"
+            );
         }
     });
 
@@ -1412,7 +1383,11 @@ async function setSettingsPanel() {
         areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
     } catch (error) {
         console.error("[Window Script]: Error loading initial setting:", error);
-        displayErrorInUI(`Failed to load settings: ${error.message}`, "N/A", "Extension Window");
+        displayErrorInUI(
+            `Failed to load settings: ${error.message}`,
+            "N/A",
+            "Extension Window"
+        );
     }
 }
 
@@ -1456,7 +1431,11 @@ async function saveToHistory(text) {
         }
     } catch (error) {
         console.error("[Window Script]: Error saving to history:", error);
-        displayErrorInUI(`Failed to save to history: ${error.message}`, "N/A", "Extension Window");
+        displayErrorInUI(
+            `Failed to save to history: ${error.message}`,
+            "N/A",
+            "Extension Window"
+        );
     }
 }
 
@@ -1486,7 +1465,11 @@ async function savePrompt(text) {
         }
     } catch (error) {
         console.error("[Window Script]: Error saving prompt:", error);
-        displayErrorInUI(`Failed to save prompt: ${error.message}`, "N/A", "Extension Window");
+        displayErrorInUI(
+            `Failed to save prompt: ${error.message}`,
+            "N/A",
+            "Extension Window"
+        );
     }
 }
 

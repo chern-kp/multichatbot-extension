@@ -709,6 +709,16 @@ body {
     margin-right: 8px;
 }
 
+.clear-input-field-setting-checkbox {
+    margin-right: 8px;
+    margin-left: 0;
+}
+
+.clear-input-field-setting-label {
+    font-size: 1rem;
+    margin-right: 8px;
+}
+
 .data-management h4 {
     font-size: 1rem;
     margin-top: 20px;

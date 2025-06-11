@@ -497,6 +497,15 @@ function setupSendButtonListener(elements) {
                     );
                 }
             }
+
+            // After all tabs are processed, check the setting to clear the input field
+            const { clearInputFieldAfterSend = false } =
+                await chrome.storage.local.get("clearInputFieldAfterSend");
+            if (clearInputFieldAfterSend) {
+                elements.inputText.value = ""; // Clear the input field
+                console.log("[Window Script]: Input field cleared after sending.");
+            }
+
         } catch (error) {
             console.error(
                 "[Window Script]: Error in send button handler:",
@@ -543,11 +552,15 @@ async function loadAndApplyInitialSettings(elements) {
     console.log("[Window Script]: Loading and applying initial settings.");
 
     // Load settings
-    const { areTabsRecentlyUpdated = false, savedSortDirection = "desc" } =
-        await chrome.storage.local.get([
-            "areTabsRecentlyUpdated",
-            "savedSortDirection",
-        ]);
+    const {
+        areTabsRecentlyUpdated = false,
+        savedSortDirection = "desc",
+        clearInputFieldAfterSend = false,
+    } = await chrome.storage.local.get([
+        "areTabsRecentlyUpdated",
+        "savedSortDirection",
+        "clearInputFieldAfterSend",
+    ]);
 
     // Apply sort direction from storage
     if (savedSortDirection) {
@@ -566,14 +579,14 @@ async function loadAndApplyInitialSettings(elements) {
         elements.sortButton.classList.remove("disabled");
     }
 
-    // Display checkbox status from storage
+    // Display checkbox status from storage for tab activation order
     elements.areTabsRecentlyActivatedCheckbox.checked = areTabsRecentlyUpdated;
     console.log(
-        "[Window Script]: Initial setting value loaded:",
+        "[Window Script]: Initial 'Display tabs in activation order' setting loaded:",
         areTabsRecentlyUpdated
     );
 
-    // Set up the event handler for the checkbox
+    // Set up the event handler for the tab activation order checkbox
     elements.areTabsRecentlyActivatedCheckbox.addEventListener(
         "change",
         async (e) => {
@@ -622,6 +635,42 @@ async function loadAndApplyInitialSettings(elements) {
             }
         }
     );
+
+    // Display checkbox status from storage for clear input field
+    elements.clearInputFieldCheckbox.checked = clearInputFieldAfterSend;
+    console.log(
+        "[Window Script]: Initial 'Clear input field after sending' setting loaded:",
+        clearInputFieldAfterSend
+    );
+
+    // Set up the event handler for the clear input field checkbox
+    elements.clearInputFieldCheckbox.addEventListener("change", async (e) => {
+        const isEnabled = e.target.checked;
+        console.log(
+            "[Window Script]: Saving 'Clear input field after sending' setting:",
+            isEnabled
+        );
+        try {
+            await chrome.storage.local.set({ clearInputFieldAfterSend: isEnabled });
+            const { clearInputFieldAfterSend: verifiedSetting } =
+                await chrome.storage.local.get("clearInputFieldAfterSend");
+            console.log(
+                "[Window Script]: Verified saved 'Clear input field after sending' setting:",
+                verifiedSetting
+            );
+        } catch (error) {
+            console.error(
+                "[Window Script]: Error saving 'Clear input field after sending' setting:",
+                error
+            );
+            displayErrorInUI(
+                `Failed to save 'Clear input field' setting: ${error.message}`,
+                "N/A",
+                "Extension Window"
+            );
+        }
+    });
+
     console.log("[Window Script]: Initial settings loaded and applied.");
 }
 
@@ -700,6 +749,9 @@ async function initializeUIElements() {
     const areTabsRecentlyActivatedCheckbox = document.getElementById(
         "recentlyUpdatedCheckbox"
     );
+    const clearInputFieldCheckbox = document.getElementById(
+        "clearInputFieldCheckbox"
+    );
 
     console.log("[Window Script]: UI elements initialized.");
 
@@ -720,6 +772,7 @@ async function initializeUIElements() {
         savedPromptsButton,
         settingsButton,
         areTabsRecentlyActivatedCheckbox,
+        clearInputFieldCheckbox,
         stopProcessingButton,
     };
 }

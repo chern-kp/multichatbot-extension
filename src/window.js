@@ -455,11 +455,27 @@ function setupSendButtonListener(elements) {
                         continue; // Skip to next tab
                     }
 
-                    // Send message to content script
-                    await chrome.tabs.sendMessage(tabId, {
+                    // Send message to content script with a timeout
+                    const MESSAGE_TIMEOUT_MS = 10000; // 10 seconds
+
+                    const messagePromise = chrome.tabs.sendMessage(tabId, {
                         action: "focusAndFill",
                         text: text,
                     });
+
+                    const timeoutPromise = new Promise((resolve, reject) => {
+                        const id = setTimeout(() => {
+                            clearTimeout(id);
+                            reject(new Error("Error: Message to tab timed out."));
+                        }, MESSAGE_TIMEOUT_MS);
+                    });
+
+                    const response = await Promise.race([messagePromise, timeoutPromise]);
+
+                    // If response is an object with success: false, it's an error from content.js
+                    if (response && response.success === false) {
+                        throw new Error(response.error || "Unknown error from content script.");
+                    }
 
                     // Add delay between tabs
                     await new Promise((resolve) => setTimeout(resolve, 500));

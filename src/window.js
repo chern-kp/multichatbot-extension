@@ -1,3 +1,28 @@
+/**
+ * @file window.js
+ * This file is activated when:
+ * Step 1. Event listener `background.js` finds a click on the extension icon.
+ * Step 2. Extension window is opened, and `window.html` file is loaded.
+ * Step 3. `window.html` loads and executes `window.js`.
+ *
+ * After `window.js` is loaded, it will call for `DOMContentLoaded` event handler. It will call @see handleDOMContentLoaded function, that:
+ * - Initialize UI elements @see initializeUIElements
+ * - Set up event listeners for buttons and input fields @see setupInputListeners, @see setupDataManagementListeners, etc.
+ * - Load and apply initial settings from chrome.storage.local, such as settings checkboxes states and sorting order @see loadAndApplyInitialSettings
+ * - Initialize tab data and update the tabs list @see initializeTabData, @see setTabsList
+ *
+ * This file also handles:
+ * - Tab activation events to track last active tabs, necessary for "Display tabs in activation order" setting @see handleTabActivatedChromeAPI; their creation, removal, and update events to keep the tabs list up-to-date @see handleTabCreatedChromeAPI, @see handleTabRemovedChromeAPI, @see handleTabUpdatedChromeAPI
+ * - Right panel toggle buttons to show supported sites, history, saved prompts, and settings @see setupRightPanelListeners
+ * - Error handling and display in the UI @see setupErrorHandlingListeners, displayErrorInUI
+ * - Input handling for sending messages, saving prompts, and managing tab selections @see setupInputListeners, setupSendButtonListener
+ * - Data management for exporting and importing saved prompts @see setupDataManagementListeners
+ *
+ * This file activates script injection into the current tab using `content.js` file @see setupSendButtonListener.
+ */
+
+
+
 console.log("[Window Script]: Window script loaded");
 import "./debug.js";
 
@@ -51,6 +76,7 @@ let tabsListElement;
 let errorQueue = [];
 let errorMessageContainer;
 let errorMessageText;
+let errorMessageCloseButton;
 
 /**
  * FUNC - Handles the DOMContentLoaded event.
@@ -251,6 +277,24 @@ function setupTabListControlListeners(elements) {
  * FUNC - Sets up the event listener for the send button.
  * Handles the click event for the send button, processing selected tabs.
  * @param {object} elements - Object containing references to DOM elements.
+ *
+ * When the "Send" button is clicked, this function initiates the process of sending
+ * the user's prompt to selected chatbot tabs. It performs the following steps:
+ * 1. Disables the "Send" button and updates its text to indicate processing.
+ * 2. Saves the current prompt text to the user's history using @see saveToHistory.
+ * 3. Retrieves all currently open tabs and filters them to get only the valid, selected tabs.
+ * 4. Iterates through each valid selected tab:
+ *    a. Activates the tab using `chrome.tabs.update({ active: true })`.
+ *    b. Sends a message to the content script (`src/content.js`) within that tab.
+ *       The message contains the action "focusAndFill" and the prompt text.
+ *       The content script then handles the interaction with the chatbot's webpage
+ *       (finding the text field, inserting text, and attempting to send the message).
+ *    c. Introduces a short delay (500ms) before processing the next tab to prevent
+ *       overloading the browser or the chatbot sites.
+ *    d. Handles any errors that occur during the processing of an individual tab,
+ *       displaying them in the UI using @see displayErrorInUI.
+ * 5. After all selected tabs have been processed (or attempted), the "Send" button
+ *    is re-enabled and its original text is restored.
  */
 function setupSendButtonListener(elements) {
     console.log("[Window Script]: Setting up send button listener.");
@@ -344,7 +388,11 @@ function setupSendButtonListener(elements) {
                         continue; // Skip to next tab
                     }
 
-                    await processTab(tab);
+                    // Send message to content script
+                    await chrome.tabs.sendMessage(tabId, {
+                        action: "focusAndFill",
+                        text: text,
+                    });
 
                     // Add delay between tabs
                     await new Promise((resolve) => setTimeout(resolve, 500));

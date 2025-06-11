@@ -64,7 +64,9 @@ async function handleExtensionIconClick() {
       }
     }
 
-    // Create a new popup window
+    /** ANCHOR - Create a new popup window with url 'src/window.html'.
+     * After creation, html file will also load style.css and window.js files.
+     */
     const window = await chrome.windows.create({
       url: 'src/window.html',
       type: 'popup',

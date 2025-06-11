@@ -72,6 +72,9 @@ let currentPanel = null;
 // Global variable for storing tab list element
 let tabsListElement;
 
+// Global variable to track if tabs are currently being processed. Necessary for canceling processing of tabs functionality.
+let isProcessingTabs = false;
+
 // Global variables for error handling
 let errorQueue = [];
 let errorMessageContainer;
@@ -108,21 +111,63 @@ async function handleDOMContentLoaded() {
     // 6. Setup send button listener
     setupSendButtonListener(elements);
 
-    // 7. Setup right panel listeners
+    // 7. Setup stop button listener
+    setupStopButtonListener(elements);
+
+    // 8. Setup right panel listeners
     setupRightPanelListeners(elements);
 
-    // 8. Load and apply initial settings (includes setting up its own change listener)
+    // 9. Load and apply initial settings (includes setting up its own change listener)
     await loadAndApplyInitialSettings(elements);
 
-    // 9. Initialize tab data and update the tabs list
+    // 10. Initialize tab data and update the tabs list
     await initializeTabData();
     await setTabsList();
+
+    // Initial UI state update
+    updateUIState(elements);
 
     console.log("[Window Script]: DOMContentLoaded processing complete.");
 }
 
 // Attach the main handler to the DOMContentLoaded event
 document.addEventListener("DOMContentLoaded", handleDOMContentLoaded);
+
+/**
+ * FUNC - Sets up the event listener for the stop button.
+ * Handles the click event for the stop button, setting the processing flag to false.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function setupStopButtonListener(elements) {
+    console.log("[Window Script]: Setting up stop button listener.");
+    elements.stopProcessingButton.addEventListener("click", () => {
+        console.log("[Window Script]: Stop button clicked. Cancelling processing.");
+        isProcessingTabs = false; // Set the flag to stop the loop
+        updateUIState(elements); // Update UI immediately
+    });
+    console.log("[Window Script]: Stop button listener set up.");
+}
+
+/**
+ * FUNC - Updates the UI state of the send and stop buttons.
+ * Disables/enables buttons based on the `isProcessingTabs` flag.
+ * @param {object} elements - Object containing references to DOM elements.
+ */
+function updateUIState(elements) {
+    elements.sendButton.disabled = isProcessingTabs;
+    elements.stopProcessingButton.disabled = !isProcessingTabs;
+
+    if (isProcessingTabs) {
+        elements.sendButton.textContent = "Sending...";
+        elements.sendButton.classList.add("sending");
+        elements.stopProcessingButton.classList.remove("hidden-by-default"); // Show stop button
+    } else {
+        elements.sendButton.textContent = "Send"; // Restore original text
+        elements.sendButton.classList.remove("sending");
+        elements.stopProcessingButton.classList.add("hidden-by-default"); // Hide stop button
+    }
+    console.log("[Window Script]: UI state updated. isProcessingTabs:", isProcessingTabs);
+}
 
 /**
  * FUNC - Listeners for input text field and save prompt button.
@@ -302,14 +347,30 @@ function setupSendButtonListener(elements) {
     elements.sendButton.addEventListener("click", async () => {
         console.log("[Window Script]: Send button clicked");
 
-        // Disable button and show processing state
+        // If already processing, do nothing
+        if (isProcessingTabs) {
+            console.log("[Window Script]: Already processing tabs. Ignoring click.");
+            return;
+        }
+
+        // Set processing flag to true
+        isProcessingTabs = true;
+
+        // Disable send button and enable stop button, show processing state
         elements.sendButton.disabled = true;
+        elements.stopProcessingButton.disabled = false;
         const originalButtonText = elements.sendButton.textContent;
-        elements.sendButton.textContent = "Sending...";
-        elements.sendButton.classList.add("sending");
+        // Update UI state at the start of processing
+        updateUIState(elements);
+
         try {
             const text = elements.inputText.value.trim();
-            if (!text) return;
+            if (!text) {
+                console.log("[Window Script]: No text provided. Aborting send.");
+                isProcessingTabs = false; // Reset flag if no text
+                updateUIState(elements);
+                return;
+            }
 
             await saveToHistory(text);
 
@@ -341,6 +402,12 @@ function setupSendButtonListener(elements) {
 
             // Process valid tabs
             for (const tabId of validSelectedTabIds) {
+                // Check if processing was cancelled before handling the next tab
+                if (!isProcessingTabs) {
+                    console.log("[Window Script]: Processing cancelled by user.");
+                    break; // If it was cancelled, exit the loop
+                }
+
                 try {
                     let tab = null;
                     try {
@@ -420,10 +487,10 @@ function setupSendButtonListener(elements) {
                 error
             );
         } finally {
-            // Restore button state
-            elements.sendButton.disabled = false;
-            elements.sendButton.textContent = originalButtonText;
-            elements.sendButton.classList.remove("sending");
+            // Reset processing flag
+            isProcessingTabs = false;
+            // Update UI state at the end of processing
+            updateUIState(elements);
         }
     });
     console.log("[Window Script]: Send button listener set up.");
@@ -613,6 +680,7 @@ async function initializeUIElements() {
         "openSavedPromptsButton"
     );
     const settingsButton = document.getElementById("openSettingsButton");
+    const stopProcessingButton = document.getElementById("stopProcessingButton");
     const areTabsRecentlyActivatedCheckbox = document.getElementById(
         "recentlyUpdatedCheckbox"
     );
@@ -636,6 +704,7 @@ async function initializeUIElements() {
         savedPromptsButton,
         settingsButton,
         areTabsRecentlyActivatedCheckbox,
+        stopProcessingButton,
     };
 }
 

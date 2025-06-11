@@ -264,6 +264,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: baseline;
+    line-height: 1.2;
 }
 
 .tab-url {
@@ -273,6 +274,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: baseline;
+    line-height: 1.2;
 }
 /* !SECTION Tabs Container */
 
@@ -554,16 +556,17 @@ body {
 /* SECTION History List */
 .history-container {
     padding: 10px;
+    overflow-x: hidden;
 }
 
 .history-item {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    position: relative;
+    align-items: center;
     padding: 10px;
     border-bottom: 1px solid #eee;
     cursor: pointer;
+    transition: background-color var(--transition-duration);
+    gap: 8px;
 }
 
 .history-item:hover {
@@ -572,42 +575,65 @@ body {
 
 .history-text {
     display: -webkit-box;
-    width: calc(100% - 1.5rem);
-    margin-right: 0;
     margin-bottom: 5px;
     -webkit-line-clamp: 25;
     line-clamp: 25;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .history-date {
-    width: 100%;
     color: #666;
     font-size: 0.8em;
-    text-align: left;
-    white-space: normal;
-    margin-right: 0;
 }
 
-.history-delete {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 1.5rem;
-    flex-shrink: 0;
+.history-save {
     background: none;
     border: none;
     color: #999;
     padding: 5px;
-    font-size: 0.875rem;
+    font-size: 1.5rem;
     cursor: pointer;
     visibility: visible;
+    flex-shrink: 0;
+    position: relative;
+    top: -1px;
+}
+
+.history-save:hover {
+    color: #ffc107;
+}
+
+.history-delete {
+    background: none;
+    border: none;
+    color: #999;
+    padding: 5px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    visibility: visible;
+    flex-shrink: 0;
 }
 
 .history-delete:hover {
     color: #ff4444;
+}
+
+.history-text-and-date-container {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.history-buttons-container {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
 }
 
 .empty-history {

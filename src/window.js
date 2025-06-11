@@ -43,16 +43,16 @@ const SUPPORTED_SITES = [
 
 //NOTE - Detailed information about supported sites
 const SUPPORTED_SITES_LINKS = {
+    "ChatGPT": "https://chat.openai.com",
     "Google Gemini": "https://gemini.google.com/app",
     "Google AI Studio": "https://aistudio.google.com/",
-    ChatGPT: "https://chat.openai.com",
     "Claude AI": "https://claude.ai/chat",
-    "Anthropic Claude (Abacus)": "https://apps.abacus.ai/chat",
     "DeepSeek Chat": "https://chat.deepseek.com",
-    "Hugging Face Chat": "https://huggingface.co/chat",
+    "Grok": "https://grok.com",
     "Perplexity AI": "https://perplexity.ai",
-    Poe: "https://poe.com",
-    Grok: "https://grok.com",
+    "Hugging Face Chat": "https://huggingface.co/chat",
+    "Poe": "https://poe.com",
+    "Anthropic Claude (Abacus)": "https://apps.abacus.ai/chat",
 };
 
 // Storage for latest tab activation times
@@ -1363,6 +1363,9 @@ async function setHistoryPanel() {
             const historyItem = document.createElement("div");
             historyItem.className = "history-item";
 
+            const textAndDateContainer = document.createElement("div");
+            textAndDateContainer.className = "history-text-and-date-container";
+
             const textContainer = document.createElement("div");
             textContainer.className = "history-text";
             textContainer.textContent = item.text;
@@ -1372,6 +1375,23 @@ async function setHistoryPanel() {
             dateContainer.className = "history-date";
             dateContainer.textContent = formatDate(item.timestamp);
 
+            textAndDateContainer.appendChild(textContainer);
+            textAndDateContainer.appendChild(dateContainer);
+
+            const saveButton = document.createElement("button");
+            saveButton.className = "history-save";
+            saveButton.innerHTML = "☆";
+            saveButton.title = "Save prompt";
+
+            saveButton.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await savePrompt(item.text);
+                saveButton.innerHTML = "✓"; // Change to checkmark for 1.5 seconds
+                setTimeout(() => {
+                    saveButton.innerHTML = "☆";
+                }, 1500);
+            });
+
             const deleteButton = document.createElement("button");
             deleteButton.className = "history-delete";
             deleteButton.innerHTML = "✕";
@@ -1379,23 +1399,34 @@ async function setHistoryPanel() {
 
             deleteButton.addEventListener("click", async (e) => {
                 e.stopPropagation();
-                const { requestHistory = [] } = await chrome.storage.local.get(
-                    "requestHistory"
+
+                // Show confirmation dialog
+                const confirmed = confirm(
+                    "Are you sure you want to delete this history item?"
                 );
-                const updatedHistory = requestHistory.filter(
-                    (h) => h.id !== item.id
-                );
-                await chrome.storage.local.set({
-                    requestHistory: updatedHistory,
-                });
-                // Re-render the history panel content
-                setHistoryPanel();
+
+                if (confirmed) {
+                    const { requestHistory = [] } =
+                        await chrome.storage.local.get("requestHistory");
+                    const updatedHistory = requestHistory.filter(
+                        (h) => h.id !== item.id
+                    );
+                    await chrome.storage.local.set({
+                        requestHistory: updatedHistory,
+                    });
+                    // Re-render the history panel content
+                    setHistoryPanel();
+                }
             });
 
-            // Append the text, date, and delete button to the history item
-            historyItem.appendChild(textContainer);
-            historyItem.appendChild(dateContainer);
-            historyItem.appendChild(deleteButton);
+            // Create a container for the save and delete buttons
+            const historyButtonsContainer = document.createElement("div");
+            historyButtonsContainer.className = "history-buttons-container";
+            historyButtonsContainer.appendChild(saveButton);
+            historyButtonsContainer.appendChild(deleteButton);
+
+            historyItem.appendChild(textAndDateContainer);
+            historyItem.appendChild(historyButtonsContainer);
 
             // When clicked, copy the text to the input field
             historyItem.addEventListener("click", () => {
@@ -1460,17 +1491,24 @@ async function setSavedPromptsPanel() {
 
             deleteButton.addEventListener("click", async (e) => {
                 e.stopPropagation();
-                const { savedPrompts = [] } = await chrome.storage.local.get(
-                    "savedPrompts"
+
+                // Show confirmation dialog
+                const confirmed = confirm(
+                    "Are you sure you want to delete this saved prompt?"
                 );
-                const updatedPrompts = savedPrompts.filter(
-                    (p) => p.id !== prompt.id
-                );
-                await chrome.storage.local.set({
-                    savedPrompts: updatedPrompts,
-                });
-                // Re-render the saved prompts panel content
-                setSavedPromptsPanel();
+
+                if (confirmed) {
+                    const { savedPrompts = [] } =
+                        await chrome.storage.local.get("savedPrompts");
+                    const updatedPrompts = savedPrompts.filter(
+                        (p) => p.id !== prompt.id
+                    );
+                    await chrome.storage.local.set({
+                        savedPrompts: updatedPrompts,
+                    });
+                    // Re-render the saved prompts panel content
+                    setSavedPromptsPanel();
+                }
             });
 
             promptItem.appendChild(textContainer);

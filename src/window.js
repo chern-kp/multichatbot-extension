@@ -277,9 +277,9 @@ function setupTabListControlListeners(elements) {
  * FUNC - Sets up the event listener for the send button.
  * Handles the click event for the send button, processing selected tabs.
  * @param {object} elements - Object containing references to DOM elements.
+ * @global
  *
- * When the "Send" button is clicked, this function initiates the process of sending
- * the user's prompt to selected chatbot tabs. It performs the following steps:
+ * When the "Send" button is clicked, this function initiates the process of sending the user's prompt to selected chatbot tabs:
  * 1. Disables the "Send" button and updates its text to indicate processing.
  * 2. Saves the current prompt text to the user's history using @see saveToHistory.
  * 3. Retrieves all currently open tabs and filters them to get only the valid, selected tabs.

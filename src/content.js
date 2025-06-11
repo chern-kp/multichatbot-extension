@@ -1,4 +1,20 @@
-//This file is injected into the webpage by the function processTab() in window.js
+/**
+ * @file content.js
+ * This file is injected into the webpage as a content script. @see {@link https://developer.chrome.com/docs/extensions/mv3/content_scripts/}.
+ * Code of `content.js` is automatically injected into the page by the browser when URL of the page matches the patterns defined in `manifest.json` in section `content_scripts.matches`.
+ * Web page with injected content script when loaded starts the listener @see handleIncomingMessages. This listener:
+ * - Step 1. Waits for messages sent from the background script via `chrome.tabs.sendMessage` (for user to call for the start of the message sending process by clicking the "Send" button in the extension popup or by pressing a keyboard shortcut).
+ * - Step 2. When user initiates the process, it calls @see {@link file:src/window.js#setupSendButtonListener} function in `window.js`. This function iterates through all selected tabs, and for each tab it calls chrome.tabs.sendMessage(tabId, { action: "focusAndFill", text: text }), where action: "focusAndFill" is used to identify the specific action to be performed in the `content.js` file.
+ * - Step 3. @see handleIncomingMessages function in `content.js` listens for incoming messages from the background script, and if request.action is "focusAndFill", it identifies the current site based on the URL and calls the appropriate handler function for that site.
+ *
+ * When specific site handler is called, it:
+ * - Step 1. Finds the first matching text field element from a list of CSS selectors.
+ * - Step 2. Sets the value of a text field element.
+ * - Step 3. Finds the first matching send button element from a list of CSS selectors.
+ * - Step 4. Attempts to submit a message by finding and clicking a send button, with a fallback to simulating an Enter key press if the button is not found or clickable.
+ *
+ * This file also includes utility functions for handling text fields, buttons, and simulating key presses.
+ */
 
 const DEVMODE = true; // False for production, true for development
 
@@ -693,7 +709,7 @@ if (window.__contentScriptLoaded) {
     //!SECTION - Site-specific handlers
 
     /**
-     * LISTENER - Handles messages sent from the background script to this content script.
+     * FUNC - Handles messages sent from the background script to this content script.
      * This listener processes "focusAndFill" actions, which instruct the content script
      * to interact with the current tab's webpage. It identifies the target chatbot site
      * based on the current URL and uses the appropriate handler to fill a text field
@@ -705,82 +721,86 @@ if (window.__contentScriptLoaded) {
      * @param {function} sendResponse - Function to call (at most once) to send a response back to the sender.
      * @returns {boolean} True if the response will be sent asynchronously, false otherwise.
      */
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        console.log("[content.js] Message received:", request);
+    function handleIncomingMessages() {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            console.log("[content.js] Message received:", request);
 
-        if (request.action !== "focusAndFill") {
-            console.log("[content.js] Unknown action:", request.action);
-            sendResponse({ success: false, error: "Unexpected error: Unknown action received by content script." });
-            return true;
-        }
-
-        if (!request.text) {
-            console.log("[content.js] No text provided");
-            sendResponse({ success: false, error: "Unexpected error: No text provided to content script." });
-            return true;
-        }
-
-        const currentURL = window.location.href;
-        console.log("[content.js] Current URL:", currentURL);
-
-        const handlerEntry = Object.entries(siteHandlers).find(([domain]) =>
-            currentURL.includes(domain)
-        );
-
-        console.log("[content.js] Handler entry:", handlerEntry);
-
-        if (!handlerEntry) {
-            console.log("[content.js] Site not supported");
-            sendResponse({
-                success: false,
-                error: "Error: Site not supported",
-                url: currentURL,
-            });
-            return true;
-        }
-
-        const handler = handlerEntry[1];
-        console.log("[content.js] Handler found, executing");
-
-        try {
-            const result = handler(request.text);
-            console.log("[content.js] Handler result:", result);
-
-            // Check if the result is a Promise
-            if (result instanceof Promise) {
-                // If the result is a Promise, handle it
-                result
-                    .then((success) => {
-                        console.log(
-                            "[content.js] Promise resolved with:",
-                            success
-                        );
-                        sendResponse({ success: !!success });
-                    })
-                    .catch((error) => {
-                        console.error("[content.js] Promise rejected:", error);
-                        sendResponse({
-                            success: false,
-                            error: error.message,
-                            stack: error.stack,
-                            errorName: error.name,
-                        });
-                    });
-                return true; // Indicate that the response will be asynchronous
-            } else {
-                // If the result is not a Promise, send it immediately
-                sendResponse({ success: !!result });
+            if (request.action !== "focusAndFill") {
+                console.log("[content.js] Unknown action:", request.action);
+                sendResponse({ success: false, error: "Unexpected error: Unknown action received by content script." });
+                return true;
             }
-        } catch (error) {
-            console.error("[content.js] Handler error:", error);
-            sendResponse({
-                success: false,
-                error: error.message,
-                stack: error.stack,
-                errorName: error.name,
-            });
-        }
 
-        return true;
-    });
+            if (!request.text) {
+                console.log("[content.js] No text provided");
+                sendResponse({ success: false, error: "Unexpected error: No text provided to content script." });
+                return true;
+            }
+
+            const currentURL = window.location.href;
+            console.log("[content.js] Current URL:", currentURL);
+
+            const handlerEntry = Object.entries(siteHandlers).find(([domain]) =>
+                currentURL.includes(domain)
+            );
+
+            console.log("[content.js] Handler entry:", handlerEntry);
+
+            if (!handlerEntry) {
+                console.log("[content.js] Site not supported");
+                sendResponse({
+                    success: false,
+                    error: "Error: Site not supported",
+                    url: currentURL,
+                });
+                return true;
+            }
+
+            const handler = handlerEntry[1];
+            console.log("[content.js] Handler found, executing");
+
+            try {
+                const result = handler(request.text);
+                console.log("[content.js] Handler result:", result);
+
+                // Check if the result is a Promise
+                if (result instanceof Promise) {
+                    // If the result is a Promise, handle it
+                    result
+                        .then((success) => {
+                            console.log(
+                                "[content.js] Promise resolved with:",
+                                success
+                            );
+                            sendResponse({ success: !!success });
+                        })
+                        .catch((error) => {
+                            console.error("[content.js] Promise rejected:", error);
+                            sendResponse({
+                                success: false,
+                                error: error.message,
+                                stack: error.stack,
+                                errorName: error.name,
+                            });
+                        });
+                    return true; // Indicate that the response will be asynchronous
+                } else {
+                    // If the result is not a Promise, send it immediately
+                    sendResponse({ success: !!result });
+                }
+            } catch (error) {
+                console.error("[content.js] Handler error:", error);
+                sendResponse({
+                    success: false,
+                    error: error.message,
+                    stack: error.stack,
+                    errorName: error.name,
+                });
+            }
+
+            return true;
+        });
+    }
+
+    handleIncomingMessages();
 }

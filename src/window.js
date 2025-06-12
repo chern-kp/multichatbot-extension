@@ -39,6 +39,7 @@ const SUPPORTED_SITES = [
     "perplexity.ai",
     "poe.com",
     "grok.com",
+    "copilot.microsoft.com",
 ];
 
 //NOTE - Detailed information about supported sites
@@ -46,6 +47,7 @@ const SUPPORTED_SITES_LINKS = {
     "ChatGPT": "https://chat.openai.com",
     "Google Gemini": "https://gemini.google.com/app",
     "Google AI Studio": "https://aistudio.google.com/",
+    "Microsoft Copilot": "https://copilot.microsoft.com/",
     "Claude AI": "https://claude.ai/chat",
     "DeepSeek Chat": "https://chat.deepseek.com",
     "Grok": "https://grok.com",
@@ -359,7 +361,6 @@ function setupSendButtonListener(elements) {
         // Disable send button and enable stop button, show processing state
         elements.sendButton.disabled = true;
         elements.stopProcessingButton.disabled = false;
-        const originalButtonText = elements.sendButton.textContent;
         // Update UI state at the start of processing
         updateUIState(elements);
 

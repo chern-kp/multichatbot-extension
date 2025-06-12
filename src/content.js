@@ -45,6 +45,7 @@ if (window.__contentScriptLoaded) {
         "perplexity.ai": handlePerplexity,
         "poe.com": handlePoe,
         "grok.com": handleGrokCom,
+        "copilot.microsoft.com": handleMicrosoftCopilot,
     };
 
     //SECTION - Utility functions for handlers
@@ -673,6 +674,31 @@ if (window.__contentScriptLoaded) {
             'button[type="submit"]:not([disabled])',
             'button[aria-label*="Send" i]:not([disabled])',
             "button:not([disabled])",
+        ];
+
+        return await attemptSubmit(input, sendButtonSelectors, true);
+    }
+
+    // FUNC - Handler for Microsoft Copilot
+    async function handleMicrosoftCopilot(text) {
+        console.log("[content.js][handleMicrosoftCopilot] Start handler");
+        const textFieldSelectors = [
+            'textarea#userInput',
+            '[data-testid="composer-input"]',
+        ];
+        const input = findTextFieldElement(textFieldSelectors);
+
+        if (!input) {
+            console.error("[content.js][handleMicrosoftCopilot] Text field not found.");
+            return false;
+        }
+        if (!setTextFieldValue(input, text)) {
+            console.error("[content.js][handleMicrosoftCopilot] Failed to set text value.");
+            return false;
+        }
+
+        const sendButtonSelectors = [
+            'button[data-testid="submit-button"]',
         ];
 
         return await attemptSubmit(input, sendButtonSelectors, true);

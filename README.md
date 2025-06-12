@@ -10,6 +10,7 @@ Supported sites (so far):
 - ChatGPT (https://chatgpt.com)
 - Claude AI (https://claude.ai)
 - DeepSeek (https://chat.deepseek.com)
+- Microsoft Copilot (https://copilot.microsoft.com/)
 - Abacus AI, or ChatLLM (https://abacus.ai)
 - HuggingFace Chat (https://huggingface.co/chat/)
 - Perplexity (https://www.perplexity.ai)

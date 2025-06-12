@@ -621,6 +621,9 @@ async function loadAndApplyInitialSettings(elements) {
                 elements.sortButton.disabled = isEnabled;
                 elements.sortButton.classList.toggle("disabled", isEnabled);
 
+                // Re-initialize tab data to ensure activation times are up-to-date
+                await initializeTabData();
+
                 // After checkbox status change, update the tabs list
                 await setTabsList();
             } catch (error) {
@@ -1542,61 +1545,12 @@ window.setSavedPromptsPanel = setSavedPromptsPanel;
  * @returns {Promise<void>}
  */
 async function setSettingsPanel() {
-    // Target the existing checkbox in HTML
-    const areTabsRecentlyActivatedCheckbox = document.getElementById(
-        "recentlyUpdatedCheckbox"
-    );
-
-    // Set up the event handler
-    areTabsRecentlyActivatedCheckbox.addEventListener("change", async (e) => {
-        const isEnabled = e.target.checked;
-
-        console.log(
-            "[Window Script]: Saving tab activation setting:",
-            isEnabled
+    try {
+        // Target the existing checkbox in HTML
+        const areTabsRecentlyActivatedCheckbox = document.getElementById(
+            "recentlyUpdatedCheckbox"
         );
 
-        try {
-            // Update the setting in storage
-            await chrome.storage.local.set({
-                areTabsRecentlyUpdated: isEnabled,
-            });
-
-            // Verify the setting was saved
-            const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
-                "areTabsRecentlyUpdated"
-            );
-            console.log(
-                "[Window Script]: Verified saved setting:",
-                areTabsRecentlyUpdated
-            );
-
-            console.log(
-                "[Window Script]: Tab activation sorting changed to:",
-                isEnabled
-            );
-
-            // Disable sort button if the checkbox is checked
-            const sortButton = document.querySelector(".sort-button");
-            sortButton.disabled = isEnabled;
-            sortButton.classList.toggle("disabled", isEnabled);
-
-            // After checkbox status change, update the tabs list
-            await setTabsList();
-        } catch (error) {
-            console.error(
-                "[Window Script]: Error saving setting or updating tabs list:",
-                error
-            );
-            displayErrorInUI(
-                `Failed to save setting: ${error.message}`,
-                "N/A",
-                "Extension Window"
-            );
-        }
-    });
-
-    try {
         // Display checkbox status from storage
         const { areTabsRecentlyUpdated } = await chrome.storage.local.get(
             "areTabsRecentlyUpdated"

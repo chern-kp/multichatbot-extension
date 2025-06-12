@@ -276,6 +276,15 @@ body {
     vertical-align: baseline;
     line-height: 1.2;
 }
+
+.tab-date-time {
+    font-family: inherit;
+    font-size: 0.8em;
+    color: black;
+    margin-left: auto;
+    padding-left: 10px;
+    white-space: nowrap;
+}
 /* !SECTION Tabs Container */
 
 /* !SECTION Top Container Main Panel Content */
@@ -718,7 +727,6 @@ body {
 
 .setting-item-container.data-management {
     flex-direction: column;
-    align-items: flex-start;
 }
 
 .setting-item-container label {
@@ -762,6 +770,14 @@ body {
     width: 100%;
     padding: 8px 12px;
 }
+
+.setting-item-divider {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 5px;
+}
+
+
 /* !SECTION Settings Panel */
 
 /* !SECTION Right Panel Content (Panel Sections) */

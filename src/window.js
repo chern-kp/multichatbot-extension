@@ -61,6 +61,9 @@ const SUPPORTED_SITES_LINKS = {
 // Global variable for storing tab activation times
 let tabActivationTimes = {};
 
+// Displaying tab creation/activation date/time
+let displayTabDateTime = false;
+
 // Maximum number of history items to keep
 const MAX_HISTORY_ITEMS = 100;
 
@@ -552,15 +555,17 @@ function setupRightPanelListeners(elements) {
 async function loadAndApplyInitialSettings(elements) {
     console.log("[Window Script]: Loading and applying initial settings.");
 
-    // Load settings
+    // ANCHOR - Load settings
     const {
         areTabsRecentlyUpdated = false,
         savedSortDirection = "desc",
         clearInputFieldAfterSend = false,
+        displayTabDateTime: loadedDisplayTabDateTime = false,
     } = await chrome.storage.local.get([
         "areTabsRecentlyUpdated",
         "savedSortDirection",
         "clearInputFieldAfterSend",
+        "displayTabDateTime",
     ]);
 
     // Apply sort direction from storage
@@ -585,6 +590,15 @@ async function loadAndApplyInitialSettings(elements) {
     console.log(
         "[Window Script]: Initial 'Display tabs in activation order' setting loaded:",
         areTabsRecentlyUpdated
+    );
+
+    displayTabDateTime = loadedDisplayTabDateTime;
+    if (elements.displayTabDateTimeCheckbox) {
+        elements.displayTabDateTimeCheckbox.checked = displayTabDateTime;
+    }
+    console.log(
+        "[Window Script]: Initial 'Display date in time of tab creation/activation' setting loaded:",
+        displayTabDateTime
     );
 
     // Set up the event handler for the tab activation order checkbox
@@ -675,6 +689,37 @@ async function loadAndApplyInitialSettings(elements) {
         }
     });
 
+    // Set up the event handler for the display tab date/time checkbox
+    if (elements.displayTabDateTimeCheckbox) {
+        elements.displayTabDateTimeCheckbox.addEventListener('change', async (e) => {
+            displayTabDateTime = e.target.checked;
+            console.log(
+                "[Window Script]: Saving 'Display date in time of tab creation/activation' setting:",
+                displayTabDateTime
+            );
+            try {
+                await chrome.storage.local.set({ displayTabDateTime: displayTabDateTime });
+                const { displayTabDateTime: verifiedSetting } =
+                    await chrome.storage.local.get("displayTabDateTime");
+                console.log(
+                    "[Window Script]: Verified saved 'Display date in time of tab creation/activation' setting:",
+                    verifiedSetting
+                );
+                await setTabsList();
+            } catch (error) {
+                console.error(
+                    "[Window Script]: Error saving 'Display date in time of tab creation/activation' setting:",
+                    error
+                );
+                displayErrorInUI(
+                    `Failed to save 'Display date/time' setting: ${error.message}`,
+                    "N/A",
+                    "Extension Window"
+                );
+            }
+        });
+    }
+
     console.log("[Window Script]: Initial settings loaded and applied.");
 }
 
@@ -756,6 +801,9 @@ async function initializeUIElements() {
     const clearInputFieldCheckbox = document.getElementById(
         "clearInputFieldCheckbox"
     );
+    const displayTabDateTimeCheckbox = document.getElementById(
+        "displayTabDateTimeCheckbox"
+    );
 
     console.log("[Window Script]: UI elements initialized.");
 
@@ -778,6 +826,7 @@ async function initializeUIElements() {
         areTabsRecentlyActivatedCheckbox,
         clearInputFieldCheckbox,
         stopProcessingButton,
+        displayTabDateTimeCheckbox,
     };
 }
 
@@ -1003,6 +1052,10 @@ async function setTabsList() {
         const tabs = await chrome.tabs.query({});
         const currentTabIds = new Set(tabs.map((tab) => tab.id));
 
+        // Request tab creation times from background script
+        const response = await chrome.runtime.sendMessage({ action: 'getTabCreationTimes' });
+        const tabCreationTimes = response.tabCreationTimes || {};
+
         // Get the URL of the extension's window
         const extensionWindowUrl = chrome.runtime.getURL("src/window.html");
         console.log(
@@ -1055,89 +1108,8 @@ async function setTabsList() {
 
         // Create tab items
         sortedTabs.forEach((tab) => {
-            const tabItem = document.createElement("div");
-            tabItem.className = "tab-item";
-
-            const isSupported = isSupportedUrl(tab.url);
-            tabItem.classList.add(isSupported ? "supported" : "unsupported");
-
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.className = "tab-checkbox";
-            // Use the merged state for setting the checkbox's checked status
-            checkbox.checked =
-                isSupported && (mergedSelectedTabs[tab.id] || false);
-            checkbox.dataset.tabId = tab.id;
-            checkbox.disabled = !isSupported;
-
-            const title = document.createElement("div");
-            title.className = "tab-title";
-            title.title = tab.title;
-            title.textContent = tab.title;
-
-            const url = document.createElement("div");
-            url.className = "tab-url";
-            url.textContent = tab.url;
-            url.title = tab.url;
-
-            const favicon = document.createElement("img");
-            favicon.className = "tab-favicon";
-            favicon.src =
-                tab.favIconUrl || chrome.runtime.getURL("icons/globe.svg");
-            favicon.alt = `${tab.title} icon`;
-
-            // Error handling for favicon
-            favicon.onerror = () => {
-                console.log(
-                    `[Window Script]: Failed to load favicon for tab ${tab.id}. Using placeholder.`
-                );
-                favicon.src = chrome.runtime.getURL("icons/globe.svg"); // Ensure placeholder is loaded correctly
-            };
-
-            const tabInfo = document.createElement("div");
-            tabInfo.className = "tab-info";
-            tabInfo.appendChild(title);
-            tabInfo.appendChild(url);
-
-            tabItem.appendChild(checkbox);
-            tabItem.appendChild(favicon);
-            tabItem.appendChild(tabInfo);
+            const tabItem = createTabItem(tab, tabCreationTimes[tab.id], mergedSelectedTabs, areTabsRecentlyUpdated);
             tabsListElement.appendChild(tabItem);
-
-            if (isSupported) {
-                tabItem.addEventListener("click", async (event) => {
-                    // Prevent the click event from propagating if the click was directly on the checkbox
-                    // This avoids double-toggling if the user clicks the checkbox itself
-                    if (event.target === checkbox) {
-                        return;
-                    }
-
-                    // Toggle the checkbox state
-                    checkbox.checked = !checkbox.checked;
-
-                    // Update storage based on the new checkbox state
-                    try {
-                        const { selectedTabs = {} } =
-                            await chrome.storage.local.get("selectedTabs");
-                        if (checkbox.checked) {
-                            selectedTabs[tab.id] = true;
-                        } else {
-                            delete selectedTabs[tab.id];
-                        }
-                        await chrome.storage.local.set({ selectedTabs });
-                    } catch (error) {
-                        console.error(
-                            `[Window Script]: Error updating selected tabs for tab ${tab.id}:`,
-                            error
-                        );
-                        displayErrorInUI(
-                            `Failed to update selected tab state for ${tab.title}: ${error.message}`,
-                            tab.url,
-                            tab.title
-                        );
-                    }
-                });
-            }
         });
     } catch (error) {
         console.error("[Window Script]: Error in setTabsList:", error);
@@ -1147,6 +1119,124 @@ async function setTabsList() {
             "Extension Window"
         );
     }
+}
+
+/**
+ * FUNC - Creates a single tab item in DOM.
+ * This function will be modified to include and manage the date/time element.
+ * @param {object} tab - The Chrome tab object.
+ * @param {number} tabCreationTimestamp - The creation timestamp for the tab.
+ * @param {object} mergedSelectedTabs - Object containing selected tab IDs.
+ * @returns {HTMLElement} The created tab item element.
+ */
+function createTabItem(tab, tabCreationTimestamp, mergedSelectedTabs, areTabsRecentlyUpdated) {
+    const tabItem = document.createElement("div");
+    tabItem.className = "tab-item";
+
+    const isSupported = isSupportedUrl(tab.url);
+    tabItem.classList.add(isSupported ? "supported" : "unsupported");
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "tab-checkbox";
+    // Use the merged state for setting the checkbox's checked status
+    checkbox.checked =
+        isSupported && (mergedSelectedTabs[tab.id] || false);
+    checkbox.dataset.tabId = tab.id;
+    checkbox.disabled = !isSupported;
+
+    const title = document.createElement("div");
+    title.className = "tab-title";
+    title.title = tab.title;
+    title.textContent = tab.title;
+
+    const url = document.createElement("div");
+    url.className = "tab-url";
+    url.textContent = tab.url;
+    url.title = tab.url;
+
+    const favicon = document.createElement("img");
+    favicon.className = "tab-favicon";
+    favicon.src =
+        tab.favIconUrl || chrome.runtime.getURL("icons/globe.svg");
+    favicon.alt = `${tab.title} icon`;
+
+    // Error handling for favicon
+    favicon.onerror = () => {
+        console.log(
+            `[Window Script]: Failed to load favicon for tab ${tab.id}. Using placeholder.`
+        );
+        favicon.src = chrome.runtime.getURL("icons/globe.svg"); // Ensure placeholder is loaded correctly
+    };
+
+    const tabInfo = document.createElement("div");
+    tabInfo.className = "tab-info";
+    tabInfo.appendChild(title);
+    tabInfo.appendChild(url);
+
+    // Create and manage date/time element
+    const dateTimeSpan = document.createElement('span');
+    dateTimeSpan.className = 'tab-date-time'; // Apply base style class
+
+    let timestampToDisplay = 0;
+    if (areTabsRecentlyUpdated) {
+        timestampToDisplay = tab.lastAccessed;
+    } else {
+        timestampToDisplay = tabCreationTimestamp;
+    }
+
+    // Format and set text
+    const formattedDateTime = formatDateTime(timestampToDisplay);
+    dateTimeSpan.textContent = formattedDateTime;
+
+    // Manage visibility based on settings and data
+    if (displayTabDateTime && formattedDateTime) {
+        dateTimeSpan.classList.remove('hidden-by-default');
+    } else {
+        dateTimeSpan.classList.add('hidden-by-default');
+    }
+
+    tabItem.appendChild(checkbox);
+    tabItem.appendChild(favicon);
+    tabItem.appendChild(tabInfo);
+    tabItem.appendChild(dateTimeSpan);
+
+    if (isSupported) {
+        tabItem.addEventListener("click", async (event) => {
+            // Prevent the click event from propagating if the click was directly on the checkbox
+            // This avoids double-toggling if the user clicks the checkbox itself
+            if (event.target === checkbox) {
+                return;
+            }
+
+            // Toggle the checkbox state
+            checkbox.checked = !checkbox.checked;
+
+            // Update storage based on the new checkbox state
+            try {
+                const { selectedTabs = {} } =
+                    await chrome.storage.local.get("selectedTabs");
+                if (checkbox.checked) {
+                    selectedTabs[tab.id] = true;
+                } else {
+                    delete selectedTabs[tab.id];
+                }
+                await chrome.storage.local.set({ selectedTabs });
+            } catch (error) {
+                console.error(
+                    `[Window Script]: Error updating selected tabs for tab ${tab.id}:`,
+                    error
+                );
+                displayErrorInUI(
+                    `Failed to update selected tab state for ${tab.title}: ${error.message}`,
+                    tab.url,
+                    tab.title
+                );
+            }
+        });
+    }
+
+    return tabItem;
 }
 
 /**
@@ -1696,6 +1786,27 @@ function displayNextError() {
 //!SECTION - Bottom panel functions
 //!SECTION - UI Panel Functions
 //SECTION - Utility Functions
+
+/**
+ * FUNC - Formats a timestamp into "HH:MM DD.MM.YYYY" string.
+ * @param {number} timestamp - The timestamp to format.
+ * @returns {string} Formatted date and time string, or empty string if timestamp is invalid/zero.
+ */
+function formatDateTime(timestamp) {
+    // Check for invalid or zero timestamp
+    if (!timestamp || timestamp === 0) {
+        return '';
+    }
+    const date = new Date(timestamp);
+    // Use Intl.DateTimeFormat for robust formatting
+    const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
+    const dateOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
+
+    const timePart = new Intl.DateTimeFormat('ru-RU', timeOptions).format(date);
+    const datePart = new Intl.DateTimeFormat('ru-RU', dateOptions).format(date);
+
+    return `${timePart} ${datePart}`;
+}
 
 /**
  * FUNC - Utility function to format the date.

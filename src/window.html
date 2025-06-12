@@ -34,16 +34,20 @@
       <div id="settingsSection" class="panel-section">
         <h3>Settings</h3>
         <div id="settingsContainer" class="panel-content-area">
-          <div class="setting-item-container">
+          <div class="setting-item-container setting-item-divider">
             <input type="checkbox" id="recentlyUpdatedCheckbox" class="recently-activated-setting-checkbox">
             <label for="recentlyUpdatedCheckbox" class="recently-activated-setting-label">Display tabs in activation order, instead of creation order</label>
           </div>
-          <div class="setting-item-container">
+          <div class="setting-item-container setting-item-divider">
+            <input type="checkbox" id="displayTabDateTimeCheckbox" class="recently-activated-setting-checkbox">
+            <label for="displayTabDateTimeCheckbox" class="recently-activated-setting-label">Display date and time of tab creation/activation</label>
+          </div>
+          <div class="setting-item-container setting-item-divider">
             <input type="checkbox" id="clearInputFieldCheckbox" class="clear-input-field-setting-checkbox">
             <label for="clearInputFieldCheckbox" class="clear-input-field-setting-label">Clear input field after sending</label>
           </div>
-          <div class="setting-item-container data-management">
-            <h4>Data Management</h4>
+          <div class="setting-item-container data-management setting-item-divider">
+            <h4 class = "data-management-title">Data Management</h4>
             <div class="setting-button-group">
               <button class="minimal-button setting-button" id="exportPromptsButton">Export Saved Prompts</button>
               <button class="minimal-button setting-button" id="importPromptsButton">Import Saved Prompts</button>

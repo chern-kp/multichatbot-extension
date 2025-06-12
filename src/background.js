@@ -21,6 +21,7 @@ const MIN_HEIGHT = 680;
  */
 function handleServiceWorkerActivate() {
   console.log('[Background] Service worker activated');
+  initializeTabCreationTimes();
 }
 
 self.addEventListener('activate', handleServiceWorkerActivate);
@@ -167,13 +168,15 @@ async function handleTabRemoved(tabId) {
       await chrome.storage.local.set({ tabActivationTimes: tabActivationTimes });
       console.log('[Background] Tab activation time removed for:', tabId);
     }
+
+    // Clean up creation times
+    await removeTabCreationTime(tabId);
   } catch (error) {
     console.error('[Background] Error cleaning up tab data for tab', tabId, ':', error);
   }
 }
 
 chrome.tabs.onRemoved.addListener(handleTabRemoved);
-
 /**
  * FUNC - Listens for changes to the tab tracking setting.
  * Logs changes to the `areTabsRecentlyUpdated` setting in local storage.
@@ -190,3 +193,97 @@ function handleStorageChanged(changes, area) {
 
 chrome.storage.onChanged.addListener(handleStorageChanged);
 // !SECTION - Tab Activation Tracking (For "Display tabs in activation order" setting)
+
+// SECTION - Tab Creation Times Management
+// ANCHOR - tabCreationTimes storage key
+const TAB_CREATION_TIMES_STORAGE_KEY = 'tabCreationTimes';
+
+/**
+ * FUNC - saveTabCreationTime
+ * Saves the creation time for a given tab ID.
+ * @param {number} tabId - The ID of the tab.
+ * @param {number} timestamp - The creation timestamp (Date.now()).
+ */
+async function saveTabCreationTime(tabId, timestamp) {
+  try {
+    const data = await chrome.storage.local.get(TAB_CREATION_TIMES_STORAGE_KEY);
+    const tabCreationTimes = data[TAB_CREATION_TIMES_STORAGE_KEY] || {};
+    tabCreationTimes[tabId] = timestamp;
+    await chrome.storage.local.set({ [TAB_CREATION_TIMES_STORAGE_KEY]: tabCreationTimes });
+    console.log(`[Background] Tab creation time saved for tab ${tabId}: ${timestamp}`);
+  } catch (error) {
+    console.error(`[Background] Error saving tab creation time for tab ${tabId}:`, error);
+  }
+}
+
+/**
+ * FUNC - removeTabCreationTime
+ * Removes the creation time for a given tab ID.
+ * @param {number} tabId - The ID of the tab to remove.
+ */
+async function removeTabCreationTime(tabId) {
+  try {
+    const data = await chrome.storage.local.get(TAB_CREATION_TIMES_STORAGE_KEY);
+    const tabCreationTimes = data[TAB_CREATION_TIMES_STORAGE_KEY] || {};
+    if (tabCreationTimes[tabId]) {
+      delete tabCreationTimes[tabId];
+      await chrome.storage.local.set({ [TAB_CREATION_TIMES_STORAGE_KEY]: tabCreationTimes });
+      console.log(`[Background] Tab creation time removed for tab ${tabId}.`);
+    }
+  } catch (error) {
+    console.error(`[Background] Error removing tab creation time for tab ${tabId}:`, error);
+  }
+}
+
+// LISTENER - Listens for when a new tab is created (chrome.tabs.onCreated)
+chrome.tabs.onCreated.addListener((tab) => {
+  if (tab.id) {
+    saveTabCreationTime(tab.id, Date.now());
+  }
+});
+
+// LISTENER - Handles messages from other parts of the extension (e.g., window.js) (chrome.runtime.onMessage)
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'getTabCreationTimes') {
+    chrome.storage.local.get(TAB_CREATION_TIMES_STORAGE_KEY, (data) => {
+      const tabCreationTimes = data[TAB_CREATION_TIMES_STORAGE_KEY] || {};
+      sendResponse({ tabCreationTimes: tabCreationTimes });
+    });
+    return true;
+  }
+});
+
+/**
+ * FUNC - Ensures that all currently open tabs have a creation timestamp recorded.
+ * If a tab does not have a recorded creation time, it assigns a default value of 0.
+ * This ensures that the tab is processed correctly without affecting sorting order
+ * for tabs with actual creation times.
+ */
+async function initializeTabCreationTimes() {
+  console.log('[Background] Initializing tab creation times for existing tabs.');
+  try {
+    const tabs = await chrome.tabs.query({});
+    const data = await chrome.storage.local.get(TAB_CREATION_TIMES_STORAGE_KEY);
+    const tabCreationTimes = data[TAB_CREATION_TIMES_STORAGE_KEY] || {};
+    let hasChanges = false;
+
+    for (const tab of tabs) {
+      if (tab.id && !tabCreationTimes[tab.id]) {
+        tabCreationTimes[tab.id] = Date.now(); // Assign current time for tabs without recorded creation time
+        hasChanges = true;
+        console.log(`[Background] Assigned current time for existing tab ${tab.id}: ${tabCreationTimes[tab.id]}`);
+      }
+    }
+
+    if (hasChanges) {
+      await chrome.storage.local.set({ [TAB_CREATION_TIMES_STORAGE_KEY]: tabCreationTimes });
+      console.log('[Background] Saved updated tab creation times after initialization.');
+    } else {
+      console.log('[Background] No new creation times to initialize.');
+    }
+  } catch (error) {
+    console.error('[Background] Error initializing tab creation times:', error);
+  }
+}
+
+// !SECTION - Tab Creation Times Management

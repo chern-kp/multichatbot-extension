@@ -17,13 +17,11 @@
  * - Error handling and display in the UI @see setupErrorHandlingListeners, displayErrorInUI
  * - Input handling for sending messages, saving prompts, and managing tab selections @see setupInputListeners, setupSendButtonListener
  * - Data management for exporting and importing saved prompts @see setupDataManagementListeners
+ * - Robust communication with the background script using a long-lived port to handle Service Worker lifecycle @see backgroundPort
  *
  * This file activates script injection into the current tab using `content.js` file @see setupSendButtonListener.
  */
 
-
-
-console.log("[Window Script]: Window script loaded");
 import "./debug.js";
 
 //NOTE - List of supported sites
@@ -86,6 +84,9 @@ let errorMessageContainer;
 let errorMessageText;
 let errorMessageCloseButton;
 
+// Global variable for the long-lived port to the background script
+let backgroundPort;
+
 /**
  * FUNC - Handles the DOMContentLoaded event.
  * Ensures that the DOM is fully loaded before interacting with it.
@@ -94,38 +95,40 @@ let errorMessageCloseButton;
  */
 async function handleDOMContentLoaded() {
     console.log("[Window Script]: DOMContentLoaded event fired");
+    // 1. Connect to the background script using a long-lived port
+    connectToBackgroundScript();
 
-    // 1. Initialize UI elements
+    // 2. Initialize UI elements
     const elements = await initializeUIElements();
 
-    // 2. Setup error handling listeners
+    // 3. Setup error handling listeners
     errorMessageContainer = elements.errorMessageContainer;
     errorMessageText = elements.errorMessageText;
     errorMessageCloseButton = elements.errorMessageCloseButton;
     setupErrorHandlingListeners(elements);
 
-    // 3. Setup input listeners
+    // 4. Setup input listeners
     setupInputListeners(elements);
 
-    // 4. Setup data management listeners
+    // 5. Setup data management listeners
     setupDataManagementListeners(elements);
 
-    // 5. Setup tab list control listeners
+    // 6. Setup tab list control listeners
     setupTabListControlListeners(elements);
 
-    // 6. Setup send button listener
+    // 7. Setup send button listener
     setupSendButtonListener(elements);
 
-    // 7. Setup stop button listener
+    // 8. Setup stop button listener
     setupStopButtonListener(elements);
 
-    // 8. Setup right panel listeners
+    // 9. Setup right panel listeners
     setupRightPanelListeners(elements);
 
-    // 9. Load and apply initial settings (includes setting up its own change listener)
+    // 10. Load and apply initial settings (includes setting up its own change listener)
     await loadAndApplyInitialSettings(elements);
 
-    // 10. Initialize tab data and update the tabs list
+    // 11. Initialize tab data and update the tabs list
     await initializeTabData();
     await setTabsList();
 
@@ -1052,9 +1055,8 @@ async function setTabsList() {
         const tabs = await chrome.tabs.query({});
         const currentTabIds = new Set(tabs.map((tab) => tab.id));
 
-        // Request tab creation times from background script
-        const response = await chrome.runtime.sendMessage({ action: 'getTabCreationTimes' });
-        const tabCreationTimes = response.tabCreationTimes || {};
+        // Request tab creation times from background script via port
+        const tabCreationTimes = await requestTabCreationTimes();
 
         // Get the URL of the extension's window
         const extensionWindowUrl = chrome.runtime.getURL("src/window.html");
@@ -1786,6 +1788,91 @@ function displayNextError() {
 //!SECTION - Bottom panel functions
 //!SECTION - UI Panel Functions
 //SECTION - Utility Functions
+
+/**
+ * FUNC - Establishes a long-lived connection to the background script.
+ * Sets up message listeners for the port.
+ */
+function connectToBackgroundScript() {
+    console.log('[Window Script]: Attempting to connect to background script...');
+    backgroundPort = chrome.runtime.connect({ name: 'extension_window_port' });
+    console.log('[Window Script]: Port connection initiated.');
+
+    backgroundPort.onMessage.addListener((message) => {
+        console.log(`[Window Script]: Message received on port from background script. Action: ${message.action}`);
+        if (message.action === 'tabCreationTimesResponse') {
+            // This message is handled by the promise in requestTabCreationTimes
+        } else if (message.action === 'error') {
+            console.error('[Window Script]: Error from background script:', message.message, message.error);
+            displayErrorInUI(
+                `Background script error: ${message.message} - ${message.error}`,
+                "N/A",
+                "Extension Window"
+            );
+        }
+    });
+
+    backgroundPort.onDisconnect.addListener(() => {
+        console.warn('[Window Script]: Port disconnected from background script. Attempting to reconnect...');
+        backgroundPort = null;
+        // Attempt to reconnect after a short delay
+    setTimeout(connectToBackgroundScript, 1000);
+});
+}
+
+/**
+ * FUNC - Sends a keep-alive message to the background script to prevent it from becoming inactive.
+ */
+function sendKeepAliveMessage() {
+    if (backgroundPort) {
+        try {
+            backgroundPort.postMessage({ action: 'keepAlive' });
+            console.log('[Window Script]: Sent keep-alive message to background script.');
+        } catch (error) {
+            console.warn('[Window Script]: Error sending keep-alive message, port might be disconnected:', error);
+        }
+    } else {
+        console.warn('[Window Script]: No active port to send keep-alive message. Attempting to reconnect...');
+        connectToBackgroundScript();
+    }
+}
+
+// Set up a periodic keep-alive message every 30 seconds
+setInterval(sendKeepAliveMessage, 30000);
+
+/**
+ * FUNC - Requests tab creation times from the background script via the long-lived port.
+ * @returns {Promise<object>} A promise that resolves with the tab creation times.
+ */
+async function requestTabCreationTimes() {
+    return new Promise((resolve, reject) => {
+        if (!backgroundPort) {
+            console.error('[Window Script]: No active port to background script. Cannot send message.');
+            displayErrorInUI(
+                `Failed to get tab data: No connection to background script.`,
+                "N/A",
+                "Extension Window"
+            );
+            return reject(new Error('No active port to background script.'));
+        }
+
+        const listener = (message) => {
+            if (message.action === 'tabCreationTimesResponse') {
+                console.log('[Window Script]: Received tab creation times response.');
+                backgroundPort.onMessage.removeListener(listener);
+                resolve(message.tabCreationTimes);
+            } else if (message.action === 'error') {
+                console.error('[Window Script]: Error response for tab creation times request:', message.message);
+                backgroundPort.onMessage.removeListener(listener);
+                reject(new Error(message.message));
+            }
+        };
+
+        backgroundPort.onMessage.addListener(listener);
+        console.log('[Window Script]: Sending getTabCreationTimes message to background script.');
+        backgroundPort.postMessage({ action: 'getTabCreationTimes' });
+    });
+}
 
 /**
  * FUNC - Formats a timestamp into "HH:MM DD.MM.YYYY" string.

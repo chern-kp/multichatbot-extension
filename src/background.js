@@ -4,9 +4,9 @@
  * Uses Service Worker Api instead of background page - required for Manifest V3 extension. It constantly runs in the background, listening for events that we added listeners for {@link https://developer.mozilla.org/docs/Web/API/Service_Worker_API}.
  * - Handles service worker activation to maintain the extension's state @see handleServiceWorkerActivate
  * - Handles extension icon clicks to open or focus the extension window @see handleExtensionIconClick
- * - Handles tab activation to track last active tabs, nessesary for "Display tabs in activation order" setting @see handleTabActivated @see handleTabRemoved @see handleStorageChanged
+ * - Handles tab activation to track last active tabs, necessary for "Display tabs in activation order" setting @see handleTabActivated @see handleTabRemoved @see handleStorageChanged
+ * - Manages tab creation times for "Display date and time of tab creation/activation" setting @see saveTabCreationTime @see removeTabCreationTime @see initializeTabCreationTimes
  */
-
 // Stores the ID of the extension window
 import './debug.js';
 let windowId = null;
@@ -242,16 +242,45 @@ chrome.tabs.onCreated.addListener((tab) => {
   }
 });
 
-// LISTENER - Handles messages from other parts of the extension (e.g., window.js) (chrome.runtime.onMessage)
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'getTabCreationTimes') {
-    chrome.storage.local.get(TAB_CREATION_TIMES_STORAGE_KEY, (data) => {
-      const tabCreationTimes = data[TAB_CREATION_TIMES_STORAGE_KEY] || {};
-      sendResponse({ tabCreationTimes: tabCreationTimes });
+// SECTION - Port Communication
+let extensionPort = null; // Store the port for communication with the extension window
+
+/**
+ * FUNC - Handles incoming connections from other parts of the extension (e.g., window.js). {@link https://developer.chrome.com/docs/extensions/develop/concepts/messaging}
+ * Establishes a long-lived port for communication.
+ * @param {Port} port - The port object representing the connection.
+ */
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'extension_window_port') {
+    console.log(`[Background] Port connected from extension window. Port name: ${port.name}`);
+    extensionPort = port;
+
+    // Listener for messages coming from the connected port
+    port.onMessage.addListener(async (message) => {
+      console.log(`[Background] Message received on port from extension window. Action: ${message.action}`);
+      if (message.action === 'getTabCreationTimes') {
+        try {
+          const data = await chrome.storage.local.get(TAB_CREATION_TIMES_STORAGE_KEY);
+          const tabCreationTimes = data[TAB_CREATION_TIMES_STORAGE_KEY] || {};
+          port.postMessage({ action: 'tabCreationTimesResponse', tabCreationTimes });
+          console.log('[Background] Sent tab creation times response.');
+        } catch (error) {
+          console.error('[Background] Error getting tab creation times:', error);
+          port.postMessage({ action: 'error', message: 'Failed to get tab creation times', error: error.message });
+        }
+      } else if (message.action === 'keepAlive') {
+        console.log('[Background] Received keep-alive message.');
+      }
     });
-    return true;
+
+    // Listener for when the port disconnects (e.g., extension window is closed)
+    port.onDisconnect.addListener(() => {
+      console.log('[Background] Port disconnected from extension window. Clearing port reference.');
+      extensionPort = null;
+    });
   }
 });
+// !SECTION - Port Communication
 
 /**
  * FUNC - Ensures that all currently open tabs have a creation timestamp recorded.

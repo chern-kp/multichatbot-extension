@@ -77,6 +77,7 @@ let tabsListElement;
 
 // Global variable to track if tabs are currently being processed. Necessary for canceling processing of tabs functionality.
 let isProcessingTabs = false;
+let isUpdatingTabsList = false; // Flag to prevent duplicate updates
 
 // Global variables for error handling
 let errorQueue = [];
@@ -1043,7 +1044,13 @@ chrome.tabs.onUpdated.addListener(handleTabUpdatedChromeAPI);
  * and dynamically creates/updates the tab list in the UI.
  */
 async function setTabsList() {
+    if (isUpdatingTabsList) {
+        console.log("[Window Script]: setTabsList already in progress. Skipping.");
+        return;
+    }
+    isUpdatingTabsList = true;
     try {
+        console.log("[Window Script]: setTabsList called");
         // Get current settings
         const { areTabsRecentlyUpdated = false } =
             await chrome.storage.local.get("areTabsRecentlyUpdated");
@@ -1120,6 +1127,8 @@ async function setTabsList() {
             "N/A",
             "Extension Window"
         );
+    } finally {
+        isUpdatingTabsList = false;
     }
 }
 

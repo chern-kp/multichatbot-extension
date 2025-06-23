@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "MultiChatbot",
     "version": "1.0",
-    "description": "Speak with multiple chatbots from one text box",
+    "description": "Free and open-source browser extension that allows you to send prompts to multiple AI chatbots (LLMs) from a single text box, including ChatGPT, Google Gemini, Claude, and more.",
     "permissions": ["activeTab", "storage", "scripting", "tabs", "windows"],
     "host_permissions": [
         "https://gemini.google.com/*",

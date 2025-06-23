@@ -565,11 +565,13 @@ async function loadAndApplyInitialSettings(elements) {
         savedSortDirection = "desc",
         clearInputFieldAfterSend = false,
         displayTabDateTime: loadedDisplayTabDateTime = false,
+        hideUnsupportedTabs = false,
     } = await chrome.storage.local.get([
         "areTabsRecentlyUpdated",
         "savedSortDirection",
         "clearInputFieldAfterSend",
         "displayTabDateTime",
+        "hideUnsupportedTabs",
     ]);
 
     // Apply sort direction from storage
@@ -609,6 +611,14 @@ async function loadAndApplyInitialSettings(elements) {
     console.log(
         "[Window Script]: Initial 'Display date in time of tab creation/activation' setting loaded:",
         displayTabDateTime
+    );
+
+    if (elements.hideUnsupportedTabsCheckbox) {
+        elements.hideUnsupportedTabsCheckbox.checked = hideUnsupportedTabs;
+    }
+    console.log(
+        "[Window Script]: Initial 'Hide unsupported tabs' setting loaded:",
+        hideUnsupportedTabs
     );
 
     // Set up the event handler for the tab activation order checkbox
@@ -737,6 +747,37 @@ async function loadAndApplyInitialSettings(elements) {
         });
     }
 
+    // Set up the event handler for the hide unsupported tabs checkbox
+    if (elements.hideUnsupportedTabsCheckbox) {
+        elements.hideUnsupportedTabsCheckbox.addEventListener('change', async (e) => {
+            const isEnabled = e.target.checked;
+            console.log(
+                "[Window Script]: Saving 'Hide unsupported tabs' setting:",
+                isEnabled
+            );
+            try {
+                await chrome.storage.local.set({ hideUnsupportedTabs: isEnabled });
+                const { hideUnsupportedTabs: verifiedSetting } =
+                    await chrome.storage.local.get("hideUnsupportedTabs");
+                console.log(
+                    "[Window Script]: Verified saved 'Hide unsupported tabs' setting:",
+                    verifiedSetting
+                );
+                await setTabsList();
+            } catch (error) {
+                console.error(
+                    "[Window Script]: Error saving 'Hide unsupported tabs' setting:",
+                    error
+                );
+                displayErrorInUI(
+                    `Failed to save 'Hide unsupported tabs' setting: ${error.message}`,
+                    "N/A",
+                    "Extension Window"
+                );
+            }
+        });
+    }
+
     console.log("[Window Script]: Initial settings loaded and applied.");
 }
 
@@ -821,6 +862,9 @@ async function initializeUIElements() {
     const displayTabDateTimeCheckbox = document.getElementById(
         "displayTabDateTimeCheckbox"
     );
+    const hideUnsupportedTabsCheckbox = document.getElementById(
+        "hideUnsupportedTabsCheckbox"
+    );
 
     console.log("[Window Script]: UI elements initialized.");
 
@@ -844,6 +888,7 @@ async function initializeUIElements() {
         clearInputFieldCheckbox,
         stopProcessingButton,
         displayTabDateTimeCheckbox,
+        hideUnsupportedTabsCheckbox,
     };
 }
 
@@ -1085,9 +1130,17 @@ async function setTabsList() {
             extensionWindowUrl
         );
 
-        // Filter out the extension's own window from the list of tabs
+        // Get current settings
+        const { hideUnsupportedTabs = false } =
+            await chrome.storage.local.get("hideUnsupportedTabs");
+        console.log(
+            "[Window Script]: Hide unsupported tabs setting enabled:",
+            hideUnsupportedTabs
+        );
+
+        // Filter out the extension's own window and optionally unsupported tabs from the list of tabs
         const filteredTabs = tabs.filter(
-            (tab) => tab.url !== extensionWindowUrl
+            (tab) => tab.url !== extensionWindowUrl && (!hideUnsupportedTabs || isSupportedUrl(tab.url))
         );
 
         // Clean up selectedTabs storage

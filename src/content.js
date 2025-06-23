@@ -16,7 +16,7 @@
  * This file also includes utility functions for handling text fields, buttons, and simulating key presses.
  */
 
-const DEVMODE = true; // False for production, true for development
+const DEVMODE = false; // False for production, true for development
 
 if (!DEVMODE) {
     console.log = function() {};

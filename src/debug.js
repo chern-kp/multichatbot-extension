@@ -1,4 +1,4 @@
-const DEVMODE = true; // False for production, true for development
+const DEVMODE = false; // False for production, true for development
 
 if (!DEVMODE) {
     console.log = function() {};

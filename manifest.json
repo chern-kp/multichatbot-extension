@@ -53,7 +53,7 @@
         }
     },
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://www.google.com https://www.gstatic.com data:;"
+        "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https: data:;"
     },
     "background": {
         "service_worker": "src/background.js",

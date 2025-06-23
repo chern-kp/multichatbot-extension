@@ -60,7 +60,7 @@ Only tabs with supported sites will be active.
 
 ### Manual Installation
 
-1. Download ZIP archive of current github repository: [Download Link](https://github.com/chern-kp/multichatbot-extension/archive/refs/heads/main.zip)
+1. Download ZIP archive from the [Releases page](https://github.com/chern-kp/multichatbot-extension/releases)
 2. Extract the ZIP file
 3. Open Chrome (or another Chromium-based browser) and go to `chrome://extensions/`
 4. Enable "Developer mode" in the top right corner
@@ -87,3 +87,6 @@ If you want to contribute to the project, feel free to fork the repository and t
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) for details.
+
+## Privacy Policy
+See [PRIVACY.md](PRIVACY.md) for details on data usage and user privacy.

@@ -234,6 +234,7 @@ if (window.__contentScriptLoaded) {
      * @param {number} [attemptDelay=200] - Delay in milliseconds between attempts to find the button.
      * @param {number} [delayBeforeFindingButton=200] - Initial delay in milliseconds before starting to find the button.
      * @param {HTMLElement|null} [searchContainer=null] - The element within which to search for the button. Defaults to the whole document.
+     * @param {boolean} [isCtrlEnter=false] - Whether to simulate Ctrl+Enter key press if button click fails.
      * @returns {Promise<boolean>} A promise that resolves to true if the message was submitted, false otherwise.
      * @throws {Error} If the message cannot be submitted after all attempts and fallbacks.
      */
@@ -244,7 +245,8 @@ if (window.__contentScriptLoaded) {
         maxAttempts = 5,
         attemptDelay = 200,
         delayBeforeFindingButton = 200,
-        searchContainer = null
+        searchContainer = null,
+        isCtrlEnter = false
     ) {
         let sendButton = null;
         let attempt = 0;
@@ -321,7 +323,7 @@ if (window.__contentScriptLoaded) {
             console.log(
                 "[content.js][attemptSubmit] Attempting to simulate Enter."
             );
-            simulateEnter(textFieldElement);
+            simulateEnter(textFieldElement, isCtrlEnter);
             console.log("[content.js][attemptSubmit] Simulated Enter.");
             return true;
         }
@@ -335,8 +337,9 @@ if (window.__contentScriptLoaded) {
      * FUNC - Simulates an "Enter" key press on a given input element.
      * This can trigger form submissions or message sends on some sites.
      * @param {HTMLElement} input - The input element to simulate the Enter key press on.
+     * @param {boolean} [useCtrl=false] - Whether to simulate Ctrl key press along with Enter.
      */
-    function simulateEnter(input) {
+    function simulateEnter(input, useCtrl = false) {
         const enterEvent = new KeyboardEvent("keydown", {
             key: "Enter",
             code: "Enter",
@@ -345,6 +348,7 @@ if (window.__contentScriptLoaded) {
             bubbles: true,
             cancelable: true,
             composed: true,
+            ctrlKey: useCtrl,
         });
         input.dispatchEvent(enterEvent);
     }
@@ -729,7 +733,7 @@ if (window.__contentScriptLoaded) {
             'button.run-button[type="submit"]',
         ];
 
-        return await attemptSubmit(input, sendButtonSelectors, true);
+        return await attemptSubmit(input, sendButtonSelectors, true, 5, 200, 200, null, true);
     }
 
     //!SECTION - Site-specific handlers

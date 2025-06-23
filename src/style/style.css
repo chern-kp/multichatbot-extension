@@ -267,14 +267,15 @@ body {
     line-height: 1.2;
 }
 
-.tab-url {
-    color: #999;
+.tab-url-link {
+    color: #5353b9;
     font-size: 0.8em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: baseline;
     line-height: 1.2;
+    text-decoration: none;
 }
 
 .tab-date-time {

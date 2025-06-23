@@ -310,7 +310,7 @@ function setupTabListControlListeners(elements) {
         // Change the sort direction after each click
         sortDirection = sortDirection === "desc" ? "asc" : "desc";
         // Update button text
-        elements.sortButton.textContent = sortDirection === "desc" ? "Sorted by newest opened ▲" : "Sorted by oldest opened ▼";
+        elements.sortButton.textContent = sortDirection === "desc" ? " ⇵ Sorted by newest opened" : " ⇵ Sorted by oldest opened";
 
         // Save the sort direction to storage
         await chrome.storage.local.set({ savedSortDirection: sortDirection });
@@ -579,9 +579,9 @@ async function loadAndApplyInitialSettings(elements) {
 
     // Set initial button text based on sort direction and activation order setting
     if (areTabsRecentlyUpdated) {
-        elements.sortButton.textContent = "Sorted by newest activated ▲";
+        elements.sortButton.textContent = "⇵ Sorted by newest activated";
     } else {
-        elements.sortButton.textContent = sortDirection === "desc" ? "Sorted by newest opened ▲" : "Sorted by oldest opened ▼";
+        elements.sortButton.textContent = sortDirection === "desc" ? "⇵ Sorted by newest opened" : "⇵ Sorted by oldest opened";
     }
 
     // Disable sort button if "Display tabs in activation order" is enabled
@@ -647,9 +647,9 @@ async function loadAndApplyInitialSettings(elements) {
 
                 // Update button text based on the new state
                 if (isEnabled) {
-                    elements.sortButton.textContent = "Sorted by newest activated ▲";
+                    elements.sortButton.textContent = "⇵ Sorted by newest activated";
                 } else {
-                    elements.sortButton.textContent = sortDirection === "desc" ? "Sorted by newest opened ▲" : "Sorted by oldest opened ▼";
+                    elements.sortButton.textContent = sortDirection === "desc" ? "⇵ Sorted by newest opened" : "⇵ Sorted by oldest opened";
                 }
 
                 // Re-initialize tab data to ensure activation times are up-to-date
@@ -1174,10 +1174,30 @@ function createTabItem(tab, tabCreationTimestamp, mergedSelectedTabs, areTabsRec
     title.title = tab.title;
     title.textContent = tab.title;
 
-    const url = document.createElement("div");
-    url.className = "tab-url";
-    url.textContent = tab.url;
-    url.title = tab.url;
+    const urlLink = document.createElement("a");
+    urlLink.className = "tab-url-link";
+    urlLink.href = tab.url;
+    urlLink.textContent = tab.url;
+    urlLink.title = tab.url;
+    urlLink.target = "_blank";
+
+    urlLink.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+            await chrome.tabs.update(tab.id, { active: true });
+            await chrome.windows.update(tab.windowId, { focused: true });
+            console.log(`[Window Script]: Activated tab ${tab.id}: ${tab.url}`);
+        } catch (error) {
+            console.error(`[Window Script]: Failed to activate tab ${tab.id}:`, error);
+            displayErrorInUI(
+                `Failed to activate tab ${tab.title}: ${error.message}`,
+                tab.url,
+                tab.title
+            );
+        }
+    });
 
     const favicon = document.createElement("img");
     favicon.className = "tab-favicon";
@@ -1196,7 +1216,7 @@ function createTabItem(tab, tabCreationTimestamp, mergedSelectedTabs, areTabsRec
     const tabInfo = document.createElement("div");
     tabInfo.className = "tab-info";
     tabInfo.appendChild(title);
-    tabInfo.appendChild(url);
+    tabInfo.appendChild(urlLink);
 
     // Create and manage date/time element
     const dateTimeSpan = document.createElement('span');
@@ -1227,9 +1247,8 @@ function createTabItem(tab, tabCreationTimestamp, mergedSelectedTabs, areTabsRec
 
     if (isSupported) {
         tabItem.addEventListener("click", async (event) => {
-            // Prevent the click event from propagating if the click was directly on the checkbox
-            // This avoids double-toggling if the user clicks the checkbox itself
-            if (event.target === checkbox) {
+            // Prevent the click event from propagating if the click was directly on the checkbox or the URL link
+            if (event.target === checkbox || event.target === urlLink) {
                 return;
             }
 

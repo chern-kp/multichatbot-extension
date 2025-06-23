@@ -308,9 +308,9 @@ function setupTabListControlListeners(elements) {
         console.log("[Window Script]: Sort button clicked");
 
         // Change the sort direction after each click
-        elements.sortButton.classList.remove(sortDirection);
         sortDirection = sortDirection === "desc" ? "asc" : "desc";
-        elements.sortButton.classList.add(sortDirection);
+        // Update button text
+        elements.sortButton.textContent = sortDirection === "desc" ? "Sorted by newest opened ▲" : "Sorted by oldest opened ▼";
 
         // Save the sort direction to storage
         await chrome.storage.local.set({ savedSortDirection: sortDirection });
@@ -576,7 +576,13 @@ async function loadAndApplyInitialSettings(elements) {
     if (savedSortDirection) {
         sortDirection = savedSortDirection;
     }
-    elements.sortButton.classList.add(sortDirection);
+
+    // Set initial button text based on sort direction and activation order setting
+    if (areTabsRecentlyUpdated) {
+        elements.sortButton.textContent = "Sorted by newest activated ▲";
+    } else {
+        elements.sortButton.textContent = sortDirection === "desc" ? "Sorted by newest opened ▲" : "Sorted by oldest opened ▼";
+    }
 
     // Disable sort button if "Display tabs in activation order" is enabled
     if (areTabsRecentlyUpdated) {
@@ -638,6 +644,13 @@ async function loadAndApplyInitialSettings(elements) {
                 // Disable sort button if the checkbox is checked
                 elements.sortButton.disabled = isEnabled;
                 elements.sortButton.classList.toggle("disabled", isEnabled);
+
+                // Update button text based on the new state
+                if (isEnabled) {
+                    elements.sortButton.textContent = "Sorted by newest activated ▲";
+                } else {
+                    elements.sortButton.textContent = sortDirection === "desc" ? "Sorted by newest opened ▲" : "Sorted by oldest opened ▼";
+                }
 
                 // Re-initialize tab data to ensure activation times are up-to-date
                 await initializeTabData();

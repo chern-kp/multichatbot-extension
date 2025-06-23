@@ -386,13 +386,9 @@ function setupSendButtonListener(elements) {
             const currentTabs = await chrome.tabs.query({});
             const currentTabIds = new Set(currentTabs.map((tab) => tab.id));
 
-            // Get selected tabs and filter out invalid ones
-            const { selectedTabs = {} } = await chrome.storage.local.get(
-                "selectedTabs"
-            );
-            const validSelectedTabIds = Object.keys(selectedTabs)
-                .map(Number)
-                .filter((id) => currentTabIds.has(id));
+            // Get selected tabs directly from the UI checkboxes (to avoid race conditions)
+            const selectedCheckboxes = tabsListElement.querySelectorAll('.tab-checkbox:checked');
+            const validSelectedTabIds = Array.from(selectedCheckboxes).map(checkbox => Number(checkbox.dataset.tabId));
 
             console.log(
                 "[Window Script]: Processing valid tabs:",

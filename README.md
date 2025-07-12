@@ -1,5 +1,11 @@
 # MultiChatbot Chrome Extension
 
+<div align="center">
+
+[![Available in the Chrome Web Store](https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png)](https://chromewebstore.google.com/detail/multichatbot/ajpjhdipnlmhnpbjkhkjmcandikakaia)
+
+</div>
+
 **MultiChatbot** is a free and open-source Google Chrome extension that allows you to interact with multiple web-applications of most popular LLMs (Large Language Models) from a single interface. The extension features a textbox that you can use to send the same prompt to several generative AI chatbots at the same time, as well as some additional features, such as ability to save you favorite prompts for later use, and prompt history.
 
 ## Demo
@@ -57,6 +63,10 @@ Only tabs with supported sites will be active.
 | <a href="assets/screenshot5-settings.png"><img src="assets/screenshot5-settings.png" alt="Settings" width="400"></a> <br> *Settings* | |
 
 ## Installation
+
+### From Chrome Web Store
+
+You can install the extension directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/multichatbot/ajpjhdipnlmhnpbjkhkjmcandikakaia).
 
 ### Manual Installation
 

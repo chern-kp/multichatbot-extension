@@ -1,3 +1,5 @@
+# Changelog
+
 ## [1.0.1] - 2025-07-23
 ### Removed
 - Removed support for Hugging Face Chat as the service is no longer available.

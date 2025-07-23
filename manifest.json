@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "MultiChatbot",
-    "version": "1.0",
+    "version": "1.0.1",
     "description": "Free and open-source Chrome extension to chat with multiple AIs (ChatGPT, Gemini, Claude & more) from one text box.",
     "permissions": ["activeTab", "storage", "tabs", "windows"],
     "host_permissions": [
@@ -12,7 +12,6 @@
         "https://claude.ai/*",
         "https://apps.abacus.ai/*",
         "https://chat.deepseek.com/*",
-        "https://huggingface.co/chat/*",
         "https://*.perplexity.ai/*",
         "https://poe.com/*",
         "https://grok.com/*",
@@ -29,7 +28,6 @@
                 "https://claude.ai/*",
                 "https://apps.abacus.ai/*",
                 "https://chat.deepseek.com/*",
-                "https://huggingface.co/chat/*",
                 "https://*.perplexity.ai/*",
                 "https://poe.com/*",
                 "https://grok.com/*"

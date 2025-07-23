@@ -33,7 +33,6 @@ const SUPPORTED_SITES = [
     "claude.ai",
     "apps.abacus.ai",
     "chat.deepseek.com",
-    "huggingface.co/chat",
     "perplexity.ai",
     "poe.com",
     "grok.com",
@@ -50,7 +49,6 @@ const SUPPORTED_SITES_LINKS = {
     "DeepSeek Chat": "https://chat.deepseek.com",
     "Grok": "https://grok.com",
     "Perplexity AI": "https://perplexity.ai",
-    "Hugging Face Chat": "https://huggingface.co/chat",
     "Poe": "https://poe.com",
     "Anthropic Claude (Abacus)": "https://apps.abacus.ai/chat",
 };

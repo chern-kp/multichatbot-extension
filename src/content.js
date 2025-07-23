@@ -41,7 +41,6 @@ if (window.__contentScriptLoaded) {
         "claude.ai": handleClaude,
         "apps.abacus.ai/chatllm": handleAbacusChat,
         "chat.deepseek.com": handleDeepSeek,
-        "huggingface.co/chat": handleHuggingFace,
         "perplexity.ai": handlePerplexity,
         "poe.com": handlePoe,
         "grok.com": handleGrokCom,
@@ -541,31 +540,6 @@ if (window.__contentScriptLoaded) {
         ];
 
         return await attemptSubmit(input, sendButtonSelectors, true);
-    }
-
-    //FUNC - Handler for HuggingFace Chat
-    async function handleHuggingFace(text) {
-        const textFieldSelectors = ['textarea[placeholder="Ask anything"]'];
-        const input = findTextFieldElement(textFieldSelectors);
-
-        if (!input) {
-            console.error(
-                "[content.js][handleHuggingFace] Text field not found."
-            );
-            return false;
-        }
-
-        if (!setTextFieldValue(input, text)) {
-            console.error(
-                "[content.js][handleHuggingFace] Failed to set text value."
-            );
-            return false;
-        }
-
-        const huggingFaceButtonSelectors = [
-            'button[aria-label="Send message"]',
-        ];
-        return await attemptSubmit(input, huggingFaceButtonSelectors, true);
     }
 
     //FUNC - Handler for Perplexity

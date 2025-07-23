@@ -1,3 +1,7 @@
+## [1.0.1] - 2025-07-23
+### Removed
+- Removed support for Hugging Face Chat as the service is no longer available.
+
 ## [1.0.0] - 2025-06-23
 ### Added
 - Initial release of MultiChatbot Chrome Extension.

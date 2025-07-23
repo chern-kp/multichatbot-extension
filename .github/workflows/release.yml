@@ -1,0 +1,51 @@
+# Name of the workflow, displayed in "Actions" on GitHub
+name: Create Release
+
+# Trigger: when a new tag that starts with "v" is pushed, this workflow will be triggered
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Jobs: list of jobs to run in this workflow
+jobs:
+  # Custom name for a job - build-and-release
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Clone the repository inside the github's virtual environment
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Name of the archive and version
+      - name: Get version and release name
+        id: get_version
+        run: |
+          # ${GITHUB_REF_NAME} is the name of the tag that we push using git. Remove the "v" prefix
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "ARCHIVE_NAME=multichatbot-extension-v$VERSION.zip" >> $GITHUB_ENV
+
+      # Create the zip archive
+      - name: Create ZIP archive
+        run: |
+          zip -r ${{ env.ARCHIVE_NAME }} \
+            manifest.json \
+            src/ \
+            icons/ \
+            assets/ \
+            LICENSE \
+            README.md \
+            PRIVACY_POLICY.md
+
+      # Create the release
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ env.VERSION }}
+          files: ${{ env.ARCHIVE_NAME }}
+          # publish as a draft?
+          draft: false
+          prerelease: false

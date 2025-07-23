@@ -37,10 +37,7 @@ jobs:
             manifest.json \
             src/ \
             icons/ \
-            assets/ \
-            LICENSE \
-            README.md \
-            PRIVACY_POLICY.md
+            LICENSE
 
       # Create the release
       - name: Create GitHub release

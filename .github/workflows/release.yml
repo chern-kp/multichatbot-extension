@@ -30,6 +30,14 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "ARCHIVE_NAME=multichatbot-extension-v$VERSION.zip" >> $GITHUB_ENV
 
+      # Read the changelog
+      - name: Read changelog
+        id: changelog
+        uses: mindsers/changelog-reader-action@v2
+        with:
+          version: ${{ env.VERSION }}
+          path: ./CHANGELOG.md
+
       # Create the zip archive
       - name: Create ZIP archive
         run: |
@@ -39,12 +47,13 @@ jobs:
             icons/ \
             LICENSE
 
-      # Create the release
+      # Create the release, with the body from the changelog
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
           name: Release ${{ env.VERSION }}
+          body: ${{ steps.changelog.outputs.changes }}
           files: ${{ env.ARCHIVE_NAME }}
           # publish as a draft?
           draft: false

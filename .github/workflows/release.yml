@@ -20,6 +20,9 @@ jobs:
       # Clone the repository inside the github's virtual environment
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Fetch all history for all tags and branches
+          fetch-depth: 0
 
       # Name of the archive and version
       - name: Get version and release name
@@ -58,3 +61,4 @@ jobs:
           # publish as a draft?
           draft: false
           prerelease: false
+          generate_release_notes: false
